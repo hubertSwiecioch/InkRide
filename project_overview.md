@@ -5,6 +5,7 @@ The objective of this project is to develop a **bicycle computer (bike computer)
 
 ## 2. Agent Skills & Contextual Behavior
 A set of dedicated **skills** is attached to this project. 
+* **Skills Discovery Path:** Before starting implementation, always check the skills catalog in `./agents/skills` (project-local path for reusable agent instructions).
 * **Operational Rule:** As an AI Agent, you must dynamically analyze the specific scope of work you are currently executing (e.g., UI layout creation, speed calculation logic, GPS data parsing, state management) and strictly invoke the corresponding *skills* relevant to that domain.
 
 ## 3. Design System: Mudita Mindful Design (MMD)
