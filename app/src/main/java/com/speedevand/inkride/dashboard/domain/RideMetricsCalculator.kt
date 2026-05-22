@@ -16,7 +16,8 @@ class RideMetricsCalculator(
     private val caloriesEstimator: CaloriesEstimator = CaloriesEstimator(),
     private val autoPauseThresholdKmh: Double = 1.5,
     private val minGradeDistanceM: Double = 4.0,
-    private val elevationNoiseThresholdM: Double = 1.0
+    private val elevationNoiseThresholdM: Double = 1.0,
+    private val maxReliableAccuracyM: Double = 20.0
 ) {
     private var sessionStartMs: Long? = null
     private var lastSample: RideSensorSample? = null
@@ -61,21 +62,38 @@ class RideMetricsCalculator(
             sample.longitude
         )
 
-        val speedMpsFromDistance = if (dtMs > 0L) segmentDistanceM / (dtMs / 1000.0) else 0.0
-        val speedMps = sample.speedFromGpsMps ?: speedMpsFromDistance
+        val hasReliableCurrentAccuracy = sample.accuracyM?.toDouble()?.let { it <= maxReliableAccuracyM } ?: true
+        val hasReliablePreviousAccuracy = previous.accuracyM?.toDouble()?.let { it <= maxReliableAccuracyM } ?: true
+        val combinedAccuracyM = max(
+            previous.accuracyM?.toDouble() ?: 0.0,
+            sample.accuracyM?.toDouble() ?: 0.0
+        )
+
+        // Compensate for GPS uncertainty so short jitter does not become false movement.
+        val effectiveDistanceM = (segmentDistanceM - combinedAccuracyM).coerceAtLeast(0.0)
+        val speedMpsFromDistance = if (dtMs > 0L && hasReliableCurrentAccuracy && hasReliablePreviousAccuracy) {
+            effectiveDistanceM / (dtMs / 1000.0)
+        } else {
+            0.0
+        }
+
+        val speedMps = when {
+            sample.speedFromGpsMps != null && hasReliableCurrentAccuracy -> sample.speedFromGpsMps
+            else -> speedMpsFromDistance
+        }
         val speedKmh = speedMps * 3.6
 
         val autoPaused = speedKmh < autoPauseThresholdKmh
         if (!autoPaused) {
             movingTimeMs += dtMs
-            totalDistanceM += segmentDistanceM
+            totalDistanceM += effectiveDistanceM
             maxSpeedMps = max(maxSpeedMps, speedMps)
             caloriesKcal += caloriesEstimator.estimateKcal(speedKmh, dtMs, userProfile)
         }
 
         val altitudeM = sample.altitudeFromBarometerM ?: sample.altitudeFromGpsM
         val previousAltitude = lastAltitudeM
-        if (altitudeM != null && previousAltitude != null) {
+        if (!autoPaused && altitudeM != null && previousAltitude != null) {
             val altitudeDelta = altitudeM - previousAltitude
             if (altitudeDelta > elevationNoiseThresholdM) {
                 elevationGainM += altitudeDelta
@@ -91,8 +109,8 @@ class RideMetricsCalculator(
             0.0
         }
 
-        val gradePercent = if (segmentDistanceM >= minGradeDistanceM) {
-            ((altitudeDeltaForGrade / segmentDistanceM) * 100.0).coerceIn(-35.0, 35.0)
+        val gradePercent = if (!autoPaused && effectiveDistanceM >= minGradeDistanceM) {
+            ((altitudeDeltaForGrade / effectiveDistanceM) * 100.0).coerceIn(-35.0, 35.0)
         } else {
             0.0
         }

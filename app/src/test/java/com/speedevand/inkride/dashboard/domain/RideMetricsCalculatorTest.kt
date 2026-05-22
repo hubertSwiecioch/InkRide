@@ -69,6 +69,98 @@ class RideMetricsCalculatorTest {
         assertTrue(metrics.gradePercent > 0.0)
     }
 
+    @Test
+    fun `poor accuracy gps drift does not disable auto pause`() {
+        val calculator = RideMetricsCalculator(autoPauseThresholdKmh = 1.5)
+
+        calculator.process(
+            sample = RideSensorSample(
+                timestampMs = 0L,
+                latitude = 52.22970,
+                longitude = 21.01220,
+                altitudeFromGpsM = 100.0,
+                altitudeFromBarometerM = 100.0,
+                speedFromGpsMps = null,
+                accuracyM = 30f
+            ),
+            userProfile = profile
+        )
+
+        val metrics = calculator.process(
+            sample = RideSensorSample(
+                timestampMs = 5_000L,
+                latitude = 52.23020,
+                longitude = 21.01220,
+                altitudeFromGpsM = 100.0,
+                altitudeFromBarometerM = 100.0,
+                speedFromGpsMps = null,
+                accuracyM = 35f
+            ),
+            userProfile = profile
+        )
+
+        assertTrue(metrics.isAutoPaused)
+        assertEquals(0L, metrics.movingTimeSeconds)
+        assertEquals(0.0, metrics.distanceKm, 0.0001)
+    }
+
+    @Test
+    fun `altitude spikes while paused do not increase elevation gain`() {
+        val calculator = RideMetricsCalculator(autoPauseThresholdKmh = 2.0)
+
+        calculator.process(sampleAt(timestampMs = 0L, altitudeBarometer = 100.0), profile)
+        val metrics = calculator.process(
+            sample = RideSensorSample(
+                timestampMs = 3_000L,
+                latitude = 52.22970,
+                longitude = 21.01220,
+                altitudeFromGpsM = 110.0,
+                altitudeFromBarometerM = 120.0,
+                speedFromGpsMps = 0.0,
+                accuracyM = 4f
+            ),
+            userProfile = profile
+        )
+
+        assertTrue(metrics.isAutoPaused)
+        assertEquals(0.0, metrics.elevationGainM, 0.0001)
+        assertEquals(0.0, metrics.gradePercent, 0.0001)
+    }
+
+    @Test
+    fun `gps altitude is used when barometer is unavailable`() {
+        val calculator = RideMetricsCalculator()
+
+        calculator.process(
+            sample = RideSensorSample(
+                timestampMs = 0L,
+                latitude = 52.22970,
+                longitude = 21.01220,
+                altitudeFromGpsM = 100.0,
+                altitudeFromBarometerM = null,
+                speedFromGpsMps = 0.0,
+                accuracyM = 4f
+            ),
+            userProfile = profile
+        )
+
+        val metrics = calculator.process(
+            sample = RideSensorSample(
+                timestampMs = 4_000L,
+                latitude = 52.23020,
+                longitude = 21.01220,
+                altitudeFromGpsM = 108.0,
+                altitudeFromBarometerM = null,
+                speedFromGpsMps = 5.0,
+                accuracyM = 4f
+            ),
+            userProfile = profile
+        )
+
+        assertEquals(108.0, metrics.altitudeM ?: 0.0, 0.0001)
+        assertTrue(metrics.elevationGainM > 0.0)
+    }
+
     private fun sampleAt(
         timestampMs: Long,
         altitudeBarometer: Double? = 100.0
