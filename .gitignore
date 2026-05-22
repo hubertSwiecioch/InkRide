@@ -1,0 +1,29 @@
+# IntelliJ / Android Studio
+.idea/
+*.iml
+
+# Gradle
+.gradle/
+
+# Local machine config
+local.properties
+
+# Build outputs
+build/
+**/build/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Kotlin/Compose caches
+.kotlin/
+
+# Signing files / secrets
+keystore.properties
+*.jks
+*.keystore
+
+# OS / logs
+.DS_Store
+*.log
+
