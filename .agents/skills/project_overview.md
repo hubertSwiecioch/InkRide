@@ -22,3 +22,9 @@ You must reference and adhere to the following specifications:
 * **Minimize Refresh Rates:** Structure views to reduce the need for full-screen refreshes (ghosting prevention/partial refreshes only where supported).
 * **High Contrast & Typography:** Adhere strictly to the typographic scales and contrast rules defined in MMD. Avoid subtle grays; rely on sharp, distinct monochromes.
 * **No Fluid Animations:** Disable smooth transitions, animations, or hover effects that cause lagging or visual distortion on E-Ink matrices.
+
+## 6. Google Services Independence (De-Googled)
+* **Zero GMS Dependency:** The application must be fully functional on "de-googled" Android distributions (e.g., GrapheneOS, CalyxOS) and devices without Google Play Services.
+* **Location & GPS:** Strictly use the standard Android `LocationManager` API. Avoid Google Play Services Fused Location Provider.
+* **No Firebase/Google Analytics:** Do not include any Firebase SDKs or Google-specific telemetry.
+* **FOSS Alternatives:** For maps or external data, prioritize OpenStreetMap (OSM) and other open-source providers.
