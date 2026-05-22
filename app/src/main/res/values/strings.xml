@@ -1,3 +1,28 @@
 <resources>
     <string name="app_name">InkRide</string>
+    <string name="dashboard_idle">Ready mode</string>
+    <string name="dashboard_tracking">Recording ride</string>
+    <string name="dashboard_speed_current">%1$s km/h (current)</string>
+    <string name="dashboard_speed_avg">Average: %1$s km/h</string>
+    <string name="dashboard_speed_max">Max: %1$s km/h</string>
+    <string name="dashboard_distance">Distance: %1$s km</string>
+    <string name="dashboard_time_moving">Ride time: %1$s</string>
+    <string name="dashboard_time_elapsed">Session time: %1$s</string>
+    <string name="dashboard_altitude">Altitude: %1$s m a.s.l.</string>
+    <string name="dashboard_elevation_gain">Elevation gain: %1$s m</string>
+    <string name="dashboard_grade">Grade: %1$s%%</string>
+    <string name="dashboard_calories">Calories: %1$s kcal</string>
+    <string name="dashboard_auto_pause_on">Auto-Pause: enabled</string>
+    <string name="dashboard_auto_pause_off">Auto-Pause: disabled</string>
+    <string name="dashboard_auto_pause_inline">Auto-Pause: %1$s</string>
+    <string name="dashboard_auto_pause_short_on">ON</string>
+    <string name="dashboard_auto_pause_short_off">OFF</string>
+    <string name="dashboard_accuracy">GPS accuracy: %1$s m</string>
+    <string name="dashboard_weight">Profile - Weight</string>
+    <string name="dashboard_weight_value">%1$s kg</string>
+    <string name="dashboard_age">Profile - Age</string>
+    <string name="dashboard_age_value">%1$d years</string>
+    <string name="dashboard_start">Start</string>
+    <string name="dashboard_stop">Stop</string>
+    <string name="dashboard_reset">Reset</string>
 </resources>
