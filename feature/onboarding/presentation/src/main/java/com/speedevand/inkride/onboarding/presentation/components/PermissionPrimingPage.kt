@@ -88,9 +88,11 @@ fun PermissionPrimingPage(
     val launcher =
         rememberLauncherForActivityResult(
             contract = ActivityResultContracts.RequestMultiplePermissions(),
-        ) {
+        ) { result ->
             hasRequestedOnce = true
-            onContinue()
+            if (result.values.all { it }) {
+                onContinue()
+            }
         }
 
     Column(
