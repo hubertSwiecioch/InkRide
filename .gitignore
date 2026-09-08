@@ -33,11 +33,11 @@ keystore.base64.txt
 
 # AI / Agents & internal planning docs (not published)
 .agents/
-.claude/
+.claude/*
+!.claude/skills/
 .superpowers/
 AGENTS.md
 GEMINI.md
-CLAUDE.md
 project_overview.md
 FEATURE_PLAN.md
 .github/copilot-instructions.md
