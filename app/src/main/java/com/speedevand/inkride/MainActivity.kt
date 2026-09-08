@@ -19,6 +19,8 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.speedevand.inkride.core.design_system.InkRideTheme
+import com.speedevand.inkride.core.domain.navigation.DashboardGraph
+import com.speedevand.inkride.core.domain.navigation.OnboardingRoute
 import com.speedevand.inkride.core.domain.settings.UserSettingsRepository
 import com.speedevand.inkride.navigation.AppNavigation
 import org.koin.android.ext.android.inject
@@ -75,7 +77,19 @@ class MainActivity : ComponentActivity() {
                 LocalOnBackPressedDispatcherOwner provides this@MainActivity,
             ) {
                 InkRideTheme {
-                    AppNavigation()
+                    // Waits for the first UserSettings emission before
+                    // composing AppNavigation at all -- NavHost's
+                    // startDestination is fixed at first composition, so it
+                    // can't be changed reactively once set. This is a
+                    // deliberate, brief blank frame on cold start (a
+                    // single-row Room read is fast); see the onboarding
+                    // design doc for the tradeoff.
+                    userSettings?.let { settings ->
+                        AppNavigation(
+                            startDestination =
+                                if (settings.hasCompletedOnboarding) DashboardGraph else OnboardingRoute,
+                        )
+                    }
                 }
             }
         }

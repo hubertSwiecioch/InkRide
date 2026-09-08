@@ -25,17 +25,17 @@ import com.mudita.mmd.components.nav_bar.NavigationBarMMD
 import com.mudita.mmd.components.text.TextMMD
 import com.speedevand.inkride.R
 import com.speedevand.inkride.ble.presentation.bleGraph
-import com.speedevand.inkride.core.domain.navigation.DashboardGraph
 import com.speedevand.inkride.core.domain.navigation.DashboardRoute
 import com.speedevand.inkride.core.domain.navigation.RideHistoryRoute
 import com.speedevand.inkride.core.domain.navigation.SettingsRoute
 import com.speedevand.inkride.dashboard.presentation.dashboardGraph
 import com.speedevand.inkride.history.presentation.historyGraph
+import com.speedevand.inkride.onboarding.presentation.onboardingGraph
 import com.speedevand.inkride.settings.presentation.settingsGraph
 import com.speedevand.inkride.tracking.service.TrackingService
 
 @Composable
-fun AppNavigation() {
+fun AppNavigation(startDestination: Any) {
     val navController = rememberNavController()
     val currentBackStack by navController.currentBackStackEntryAsState()
     val currentDestination = currentBackStack?.destination
@@ -93,7 +93,7 @@ fun AppNavigation() {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = DashboardGraph,
+            startDestination = startDestination,
             // consumeWindowInsets marks this region as already handled so the nested
             // per-screen Scaffolds (each with their own contentWindowInsets) don't
             // apply the same status/navigation bar inset a second time.
@@ -107,6 +107,7 @@ fun AppNavigation() {
             popExitTransition = { ExitTransition.None },
         ) {
             dashboardGraph(navController, TrackingService::class.java)
+            onboardingGraph(navController)
             historyGraph(navController)
             settingsGraph(navController)
             bleGraph(navController)
