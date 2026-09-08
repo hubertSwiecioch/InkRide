@@ -15,6 +15,9 @@ data object SettingsGraph
 data object DashboardRoute
 
 @Serializable
+data object OnboardingRoute
+
+@Serializable
 data object SettingsRoute
 
 @Serializable
