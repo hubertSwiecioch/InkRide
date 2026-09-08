@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="onboarding_eink_title">Built for E-Ink</string>
+    <string name="onboarding_eink_body">Placeholder</string>
+    <string name="onboarding_privacy_title">Your rides stay yours</string>
+    <string name="onboarding_privacy_body">Placeholder</string>
+    <string name="onboarding_tracking_title">Track every ride</string>
+    <string name="onboarding_tracking_body">Placeholder</string>
+    <string name="onboarding_location_title">Location access</string>
+    <string name="onboarding_location_body">Placeholder</string>
+    <string name="onboarding_notification_title">Ride notifications</string>
+    <string name="onboarding_notification_body">Placeholder</string>
+</resources>
