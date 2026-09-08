@@ -38,4 +38,8 @@ data class UserSettings(
     // metric estimators (see [bikeWeightKg]/[bikeType], which are populated from
     // it). Null falls back to the flat [bikeWeightKg]/[bikeType] defaults.
     val activeBikeProfileId: Long? = null,
+    // First-run onboarding walkthrough completion. False only for a genuinely
+    // fresh install (no row yet); an upgrading user is grandfathered to true
+    // by MIGRATION_6_7 so onboarding never appears retroactively.
+    val hasCompletedOnboarding: Boolean = false,
 )

@@ -106,4 +106,26 @@ class MigrationTest {
         }
         db.close()
     }
+
+    @Test
+    fun `migration 6 to 7 adds hasCompletedOnboarding column defaulting existing rows to true`() {
+        val db =
+            openHelper(
+                dbName = "migration_6_7_test",
+                version = 6,
+                createSql =
+                    listOf(
+                        "CREATE TABLE `user_settings` (`id` INTEGER PRIMARY KEY NOT NULL, `weightKg` INTEGER NOT NULL)",
+                        "INSERT INTO `user_settings` (`id`, `weightKg`) VALUES (1, 75)",
+                    ),
+            ).writableDatabase
+
+        MIGRATION_6_7.migrate(db)
+
+        db.query("SELECT hasCompletedOnboarding FROM user_settings WHERE id = 1").use { cursor ->
+            assertThat(cursor.moveToFirst()).isTrue()
+            assertThat(cursor.getInt(0)).isEqualTo(1)
+        }
+        db.close()
+    }
 }

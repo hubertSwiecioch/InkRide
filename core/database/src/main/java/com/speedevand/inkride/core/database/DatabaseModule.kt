@@ -65,6 +65,22 @@ val MIGRATION_5_6 =
         }
     }
 
+/**
+ * v6 → v7: adds the `hasCompletedOnboarding` flag to `user_settings`, backing
+ * the first-run onboarding walkthrough. Defaults existing rows to `true` — an
+ * upgrading user has already used the app and must never see onboarding
+ * retroactively. Only a genuinely fresh install with no row yet falls back to
+ * the Kotlin-side `UserSettings.hasCompletedOnboarding = false` default.
+ */
+val MIGRATION_6_7 =
+    object : Migration(6, 7) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "ALTER TABLE `user_settings` ADD COLUMN `hasCompletedOnboarding` INTEGER NOT NULL DEFAULT 1",
+            )
+        }
+    }
+
 val databaseModule =
     module {
         single {
@@ -73,7 +89,7 @@ val databaseModule =
                     androidContext(),
                     AppDatabase::class.java,
                     "inkride.db",
-                ).addMigrations(MIGRATION_4_5, MIGRATION_5_6)
+                ).addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                 .fallbackToDestructiveMigration()
                 .build()
         }

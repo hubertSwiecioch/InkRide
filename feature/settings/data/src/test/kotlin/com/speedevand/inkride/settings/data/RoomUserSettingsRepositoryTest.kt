@@ -91,6 +91,44 @@ class RoomUserSettingsRepositoryTest {
         }
 
     @Test
+    fun `observeSettings maps hasCompletedOnboarding flag`() =
+        runTest {
+            dao.setEntity(
+                UserSettingsEntity(
+                    id = 1,
+                    weightKg = 80,
+                    age = 25,
+                    bikeWeightKg = 12.0,
+                    bikeType = "ROAD",
+                    languageCode = "en",
+                    units = "METRIC",
+                    showDistance = true,
+                    showMovingTime = true,
+                    showAverageSpeed = true,
+                    showMaxSpeed = true,
+                    showElevationGain = true,
+                    showCalories = true,
+                    showAltitude = true,
+                    showGrade = true,
+                    showCompass = true,
+                    showPower = true,
+                    hasCompletedOnboarding = true,
+                ),
+            )
+
+            val settings = repository.observeSettings().first()
+            assertThat(settings.hasCompletedOnboarding).isEqualTo(true)
+        }
+
+    @Test
+    fun `save persists hasCompletedOnboarding flag`() =
+        runTest {
+            val settings = UserSettings(weightKg = 80, age = 25, hasCompletedOnboarding = true)
+            repository.save(settings)
+            assertThat(dao.lastUpsert?.hasCompletedOnboarding).isEqualTo(true)
+        }
+
+    @Test
     fun `observeSettings returns defaults when entity is null`() =
         runTest {
             dao.setEntity(null)
