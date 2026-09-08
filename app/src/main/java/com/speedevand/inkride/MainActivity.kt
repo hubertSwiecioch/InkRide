@@ -78,9 +78,10 @@ class MainActivity : ComponentActivity() {
             ) {
                 InkRideTheme {
                     // Waits for the first UserSettings emission before
-                    // composing AppNavigation at all -- NavHost's
-                    // startDestination is fixed at first composition, so it
-                    // can't be changed reactively once set. This is a
+                    // composing AppNavigation at all -- AppNavigation itself
+                    // freezes the start destination on first composition via
+                    // remember, so later startDestination values passed in
+                    // from here are intentionally ignored. This is a
                     // deliberate, brief blank frame on cold start (a
                     // single-row Room read is fast); see the onboarding
                     // design doc for the tradeoff.

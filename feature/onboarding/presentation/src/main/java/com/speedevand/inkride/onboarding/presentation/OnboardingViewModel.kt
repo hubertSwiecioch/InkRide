@@ -27,6 +27,14 @@ class OnboardingViewModel(
     private val _events = Channel<OnboardingEvent>()
     val events = _events.receiveAsFlow()
 
+    // Guards against advance() being re-entered (e.g. a fast double-tap on
+    // "Skip for now") after completion has already started but before the UI
+    // has navigated away -- without this, each re-entry would launch another
+    // completeOnboarding() coroutine, another save(), and another
+    // NavigateToDashboard send. Never reset back to false: once onboarding
+    // completes the screen navigates away and this ViewModel is torn down.
+    private var isCompleting = false
+
     fun onAction(action: OnboardingAction) {
         when (action) {
             OnboardingAction.OnNextClicked -> advance(_state.value.pageIndex + 1)
@@ -36,7 +44,9 @@ class OnboardingViewModel(
 
     private fun advance(nextIndex: Int) {
         if (nextIndex >= steps.size) {
-            completeOnboarding()
+            if (!isCompleting) {
+                completeOnboarding()
+            }
         } else {
             savedStateHandle[PAGE_INDEX_KEY] = nextIndex
             _state.update { it.copy(pageIndex = nextIndex) }
@@ -47,6 +57,7 @@ class OnboardingViewModel(
     // data loss -- so the write is fire-and-forget rather than surfaced as
     // an error to the user.
     private fun completeOnboarding() {
+        isCompleting = true
         viewModelScope.launch {
             val current = userSettingsRepository.observeSettings().first()
             userSettingsRepository.save(current.copy(hasCompletedOnboarding = true))

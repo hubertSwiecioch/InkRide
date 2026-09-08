@@ -107,6 +107,21 @@ class MigrationTest {
         db.close()
     }
 
+    // MIGRATION_6_7's seed-insert (for the zero-row grandfathering case) names
+    // every NOT NULL column of `user_settings`, so unlike the other tests in
+    // this file, these two need the full v6 column set rather than a
+    // stripped-down couple of columns -- a SQLite INSERT naming a column the
+    // table doesn't have fails outright, not just the assertions.
+    private val userSettingsV6CreateSql =
+        "CREATE TABLE `user_settings` (" +
+            "`id` INTEGER PRIMARY KEY NOT NULL, `weightKg` INTEGER NOT NULL, `age` INTEGER NOT NULL, " +
+            "`bikeWeightKg` REAL NOT NULL, `bikeType` TEXT NOT NULL, `languageCode` TEXT NOT NULL, " +
+            "`units` TEXT NOT NULL, `showDistance` INTEGER NOT NULL, `showMovingTime` INTEGER NOT NULL, " +
+            "`showAverageSpeed` INTEGER NOT NULL, `showMaxSpeed` INTEGER NOT NULL, " +
+            "`showElevationGain` INTEGER NOT NULL, `showCalories` INTEGER NOT NULL, " +
+            "`showAltitude` INTEGER NOT NULL, `showGrade` INTEGER NOT NULL, `showCompass` INTEGER NOT NULL, " +
+            "`showPower` INTEGER NOT NULL, `keepScreenOn` INTEGER NOT NULL)"
+
     @Test
     fun `migration 6 to 7 adds hasCompletedOnboarding column defaulting existing rows to true`() {
         val db =
@@ -115,9 +130,31 @@ class MigrationTest {
                 version = 6,
                 createSql =
                     listOf(
-                        "CREATE TABLE `user_settings` (`id` INTEGER PRIMARY KEY NOT NULL, `weightKg` INTEGER NOT NULL)",
-                        "INSERT INTO `user_settings` (`id`, `weightKg`) VALUES (1, 75)",
+                        userSettingsV6CreateSql,
+                        "INSERT INTO `user_settings` (`id`, `weightKg`, `age`, `bikeWeightKg`, `bikeType`, " +
+                            "`languageCode`, `units`, `showDistance`, `showMovingTime`, `showAverageSpeed`, " +
+                            "`showMaxSpeed`, `showElevationGain`, `showCalories`, `showAltitude`, `showGrade`, " +
+                            "`showCompass`, `showPower`, `keepScreenOn`) VALUES " +
+                            "(1, 75, 30, 10.0, 'ROAD', 'en', 'METRIC', 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1)",
                     ),
+            ).writableDatabase
+
+        MIGRATION_6_7.migrate(db)
+
+        db.query("SELECT hasCompletedOnboarding FROM user_settings WHERE id = 1").use { cursor ->
+            assertThat(cursor.moveToFirst()).isTrue()
+            assertThat(cursor.getInt(0)).isEqualTo(1)
+        }
+        db.close()
+    }
+
+    @Test
+    fun `migration 6 to 7 grandfathers upgrading users with zero prior settings rows`() {
+        val db =
+            openHelper(
+                dbName = "migration_6_7_no_row_test",
+                version = 6,
+                createSql = listOf(userSettingsV6CreateSql),
             ).writableDatabase
 
         MIGRATION_6_7.migrate(db)
