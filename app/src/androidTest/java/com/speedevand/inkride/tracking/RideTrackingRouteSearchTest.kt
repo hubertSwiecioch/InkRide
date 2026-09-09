@@ -1,9 +1,12 @@
 package com.speedevand.inkride.tracking
 
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.waitUntilExactlyOneExists
 import assertk.assertThat
 import assertk.assertions.contains
 import com.speedevand.inkride.core.domain.Result
@@ -47,6 +50,7 @@ import kotlin.math.cos
  * eastbound fixes toward the corner after the route loads; without that, the
  * turn arrow never renders and `ROUTE_NEXT_TURN_ICON` never appears.
  */
+@OptIn(ExperimentalTestApi::class)
 class RideTrackingRouteSearchTest : RideTrackingE2ETestBase() {
     private val placeSearchService = FakeSearchPlaceSearchService()
     private val routingService = FakeSearchRoutingService()
@@ -93,10 +97,10 @@ class RideTrackingRouteSearchTest : RideTrackingE2ETestBase() {
         composeTestRule.onNodeWithText(dashboardString(R.string.destination_search_hint)).performTextInput("Corner")
 
         // Real 600ms debounce in DestinationSearchViewModel, plus the fakes'
-        // effectively-instant resolution -- give it real wall-clock time,
-        // then let Compose settle before looking for the result row.
-        Thread.sleep(800L)
-        composeTestRule.waitForIdle()
+        // effectively-instant resolution -- poll for the actual result to
+        // appear rather than sleeping out a fixed margin over the debounce,
+        // which is flaky on shared/slow CI hardware.
+        composeTestRule.waitUntilExactlyOneExists(hasText("Test Corner Place"), timeoutMillis = 5_000L)
         composeTestRule.onNodeWithText("Test Corner Place").performClick()
         composeTestRule.waitForIdle()
 
