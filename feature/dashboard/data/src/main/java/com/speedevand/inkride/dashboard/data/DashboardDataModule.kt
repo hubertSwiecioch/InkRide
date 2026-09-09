@@ -10,5 +10,5 @@ val dashboardDataModule =
     module {
         single<PlaceSearchService> { NominatimPlaceSearchService(userAgent = androidContext().packageName) }
         single<RoutingService> { OsrmRoutingService() }
-        single<CurrentLocationProvider> { AndroidCurrentLocationProvider(androidContext()) }
+        single<CurrentLocationProvider> { AndroidCurrentLocationProvider(androidContext(), get()) }
     }
