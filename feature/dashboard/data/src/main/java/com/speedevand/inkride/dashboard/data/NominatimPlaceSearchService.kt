@@ -13,6 +13,7 @@ import io.ktor.client.request.parameter
 import io.ktor.http.HttpHeaders
 import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -42,6 +43,8 @@ class NominatimPlaceSearchService(
                     parameter("format", "json")
                     parameter("limit", "8")
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 return Result.Error(PlaceSearchError.NETWORK_FAILED)
             }
@@ -53,6 +56,8 @@ class NominatimPlaceSearchService(
         val results =
             try {
                 httpResponse.body<List<NominatimResult>>()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 return Result.Error(PlaceSearchError.NETWORK_FAILED)
             }

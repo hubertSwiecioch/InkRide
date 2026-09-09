@@ -13,15 +13,23 @@ import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.util.Locale
 
 /**
- * Computes a bike route between two points via the public OSRM demo server
- * (router.project-osrm.org), keyless, "reasonable, non-commercial use" only,
- * no uptime SLA. The natural upgrade path if reliability becomes a problem is
- * a self-hosted OSRM instance behind this same interface.
+ * Computes a bike route between two points via FOSSGIS's public bike-profile
+ * OSRM deployment (routing.openstreetmap.de/routed-bike), keyless, "reasonable,
+ * non-commercial use" only, no uptime SLA. Note the URL's `driving` path
+ * segment is this deployment's fixed routing-mode name — the *dataset* it
+ * serves is the dedicated bike-profile graph (this deployment does not use the
+ * path segment to select a profile the way the generic OSRM demo server's URL
+ * shape might suggest; router.project-osrm.org, by contrast, silently ignores
+ * the profile segment and always serves its single car-profile dataset, which
+ * is why this class does not point there). The natural upgrade path if
+ * reliability becomes a problem is a self-hosted OSRM instance behind this
+ * same interface.
  */
 class OsrmRoutingService(
     private val httpClient: HttpClient =
@@ -49,11 +57,13 @@ class OsrmRoutingService(
 
         val httpResponse =
             try {
-                httpClient.get("https://router.project-osrm.org/route/v1/bike/$coordinates") {
+                httpClient.get("https://routing.openstreetmap.de/routed-bike/route/v1/driving/$coordinates") {
                     parameter("geometries", "geojson")
                     parameter("steps", "true")
                     parameter("overview", "full")
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 return Result.Error(RoutingError.NETWORK_FAILED)
             }
@@ -65,6 +75,8 @@ class OsrmRoutingService(
         val parsed =
             try {
                 httpResponse.body<OsrmRouteResponse>()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 return Result.Error(RoutingError.NETWORK_FAILED)
             }
@@ -82,6 +94,8 @@ class OsrmRoutingService(
                         longitude = coordinate.getOrNull(0) ?: return Result.Error(RoutingError.NETWORK_FAILED),
                     )
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 return Result.Error(RoutingError.NETWORK_FAILED)
             }
@@ -98,6 +112,8 @@ class OsrmRoutingService(
                             name = step.name.ifBlank { null },
                         )
                     }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 return Result.Error(RoutingError.NETWORK_FAILED)
             }

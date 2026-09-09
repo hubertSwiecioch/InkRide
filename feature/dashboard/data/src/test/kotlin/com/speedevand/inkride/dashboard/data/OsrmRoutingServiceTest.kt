@@ -133,6 +133,10 @@ class OsrmRoutingServiceTest {
 
             service.route(52.0, 21.0, 51.99, 21.01)
 
+            // Verify the request hits FOSSGIS's dedicated bike-profile OSRM
+            // deployment, not the generic OSRM demo server (which ignores the
+            // {profile} path segment and always serves car-profile routes).
+            assertThat(requestUrl).contains("https://routing.openstreetmap.de/routed-bike/route/v1/driving/")
             // Verify coordinates are in lon,lat order (not lat,lon)
             // Origin: lat=52.0, lon=21.0 -> should be 21.000000,52.000000 in URL path
             // Destination: lat=51.99, lon=21.01 -> should be 21.010000,51.990000 in URL path
