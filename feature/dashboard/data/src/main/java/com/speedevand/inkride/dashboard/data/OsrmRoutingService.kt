@@ -75,20 +75,32 @@ class OsrmRoutingService(
         }
 
         val points =
-            route.geometry.coordinates.map { coordinate ->
-                RoutePoint(latitude = coordinate[1], longitude = coordinate[0])
-            }
-        val waypoints =
-            route.legs
-                .flatMap { it.steps }
-                .filter { it.maneuver.type != "depart" && it.maneuver.type != "arrive" }
-                .map { step ->
-                    RouteWaypoint(
-                        latitude = step.maneuver.location[1],
-                        longitude = step.maneuver.location[0],
-                        name = step.name.ifBlank { null },
+            try {
+                route.geometry.coordinates.map { coordinate ->
+                    RoutePoint(
+                        latitude = coordinate.getOrNull(1) ?: return Result.Error(RoutingError.NETWORK_FAILED),
+                        longitude = coordinate.getOrNull(0) ?: return Result.Error(RoutingError.NETWORK_FAILED),
                     )
                 }
+            } catch (e: Exception) {
+                return Result.Error(RoutingError.NETWORK_FAILED)
+            }
+
+        val waypoints =
+            try {
+                route.legs
+                    .flatMap { it.steps }
+                    .filter { it.maneuver.type != "depart" && it.maneuver.type != "arrive" }
+                    .map { step ->
+                        RouteWaypoint(
+                            latitude = step.maneuver.location.getOrNull(1) ?: return Result.Error(RoutingError.NETWORK_FAILED),
+                            longitude = step.maneuver.location.getOrNull(0) ?: return Result.Error(RoutingError.NETWORK_FAILED),
+                            name = step.name.ifBlank { null },
+                        )
+                    }
+            } catch (e: Exception) {
+                return Result.Error(RoutingError.NETWORK_FAILED)
+            }
 
         return Result.Success(PlannedRoute(name = null, points = points, waypoints = waypoints))
     }

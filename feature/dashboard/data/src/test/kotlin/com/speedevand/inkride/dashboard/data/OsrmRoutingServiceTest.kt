@@ -1,7 +1,7 @@
 package com.speedevand.inkride.dashboard.data
 
 import assertk.assertThat
-import assertk.assertions.hasSize
+import assertk.assertions.contains
 import assertk.assertions.isEqualTo
 import com.speedevand.inkride.core.domain.Result
 import com.speedevand.inkride.core.domain.tracking.PlannedRoute
@@ -100,6 +100,66 @@ class OsrmRoutingServiceTest {
     fun `route returns NETWORK_FAILED on a server error`() =
         runTest {
             val service = OsrmRoutingService(clientReturning(HttpStatusCode.InternalServerError, ""))
+
+            val result = service.route(52.0, 21.0, 51.99, 21.01)
+
+            assertThat(result).isEqualTo(Result.Error(RoutingError.NETWORK_FAILED))
+        }
+
+    @Test
+    fun `route constructs request with correct coordinates in lon-lat order and required query params`() =
+        runTest {
+            var requestUrl = ""
+            val testClient =
+                HttpClient(
+                    MockEngine { request ->
+                        requestUrl = request.url.toString()
+                        respond(
+                            content = successBody,
+                            status = HttpStatusCode.OK,
+                            headers =
+                                headersOf(
+                                    HttpHeaders.ContentType,
+                                    "application/json",
+                                ),
+                        )
+                    },
+                ) {
+                    install(ContentNegotiation) {
+                        json(Json { ignoreUnknownKeys = true })
+                    }
+                }
+            val service = OsrmRoutingService(testClient)
+
+            service.route(52.0, 21.0, 51.99, 21.01)
+
+            // Verify coordinates are in lon,lat order (not lat,lon)
+            // Origin: lat=52.0, lon=21.0 -> should be 21.000000,52.000000 in URL path
+            // Destination: lat=51.99, lon=21.01 -> should be 21.010000,51.990000 in URL path
+            assertThat(requestUrl).contains("21.000000,52.000000")
+            assertThat(requestUrl).contains("21.010000,51.990000")
+            // Verify required query parameters are present
+            assertThat(requestUrl).contains("geometries=geojson")
+            assertThat(requestUrl).contains("steps=true")
+            assertThat(requestUrl).contains("overview=full")
+        }
+
+    @Test
+    fun `route returns NETWORK_FAILED when coordinate array is malformed`() =
+        runTest {
+            val malformedBody =
+                """
+                {
+                  "code": "Ok",
+                  "routes": [
+                    {
+                      "geometry": { "coordinates": [[21.0]] },
+                      "legs": [{ "steps": [] }]
+                    }
+                  ]
+                }
+                """.trimIndent()
+            val service = OsrmRoutingService(clientReturning(HttpStatusCode.OK, malformedBody))
 
             val result = service.route(52.0, 21.0, 51.99, 21.01)
 
