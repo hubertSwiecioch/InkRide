@@ -91,6 +91,7 @@ abstract class RideTrackingE2ETestBase {
             age = 30,
             pairedHrmAddress = "AA:BB:CC:DD:EE:01",
             pairedCadenceAddress = "AA:BB:CC:DD:EE:02",
+            hasCompletedOnboarding = true,
         )
 
     @Before

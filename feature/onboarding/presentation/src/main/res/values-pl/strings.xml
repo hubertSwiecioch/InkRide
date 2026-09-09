@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="onboarding_eink_title">Stworzone dla E-Ink</string>
+    <string name="onboarding_eink_body">Czytelny w słońcu, energooszczędny ekran zaprojektowany na kierownicę — a nie odświeżony ekran telefonu.</string>
+    <string name="onboarding_privacy_title">Twoje przejażdżki należą tylko do Ciebie</string>
+    <string name="onboarding_privacy_body">Bez konta, bez chmury, bez śledzenia. Każda przejażdżka jest zapisywana wyłącznie na tym urządzeniu.</string>
+    <string name="onboarding_tracking_title">Śledź każdą przejażdżkę</string>
+    <string name="onboarding_tracking_body">Prędkość GPS, dystans, przewyższenie i kalorie — a także opcjonalne czujniki tętna i kadencji.</string>
+    <string name="onboarding_location_title">Dostęp do lokalizacji</string>
+    <string name="onboarding_location_body">InkRide używa Twojej lokalizacji do śledzenia przejażdżek przez GPS. Te dane nigdy nie opuszczają urządzenia.</string>
+    <string name="onboarding_notification_title">Powiadomienia o przejażdżce</string>
+    <string name="onboarding_notification_body">Powiadomienie utrzymuje niezawodne śledzenie przejażdżki, gdy ekran jest wyłączony.</string>
+    <string name="onboarding_next">Dalej</string>
+    <string name="onboarding_skip">Pomiń</string>
+    <string name="onboarding_permission_continue">Kontynuuj</string>
+    <string name="onboarding_permission_open_settings">Otwórz ustawienia</string>
+    <string name="onboarding_permission_skip">Pomiń na razie</string>
+</resources>

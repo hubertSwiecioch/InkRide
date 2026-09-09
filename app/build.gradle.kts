@@ -93,6 +93,7 @@ dependencies {
     implementation(project(":core:design-system"))
     implementation(project(":core:database"))
     implementation(project(":feature:dashboard:presentation"))
+    implementation(project(":feature:onboarding:presentation"))
     implementation(project(":feature:history:data"))
     implementation(project(":feature:history:presentation"))
     implementation(project(":feature:settings:data"))

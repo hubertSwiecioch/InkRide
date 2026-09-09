@@ -11,7 +11,7 @@ import androidx.room.RoomDatabase
         RideLapEntity::class,
         BikeProfileEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {

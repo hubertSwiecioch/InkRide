@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="onboarding_eink_title">Built for E-Ink</string>
+    <string name="onboarding_eink_body">A sunlight-readable, low-power display made for the handlebars — not a repurposed phone screen.</string>
+    <string name="onboarding_privacy_title">Your rides stay yours</string>
+    <string name="onboarding_privacy_body">No accounts, no cloud, no tracking. Every ride is stored only on this device.</string>
+    <string name="onboarding_tracking_title">Track every ride</string>
+    <string name="onboarding_tracking_body">GPS speed, distance, elevation and calories — plus optional heart-rate and cadence sensors.</string>
+    <string name="onboarding_location_title">Location access</string>
+    <string name="onboarding_location_body">InkRide uses your location to track rides via GPS. This data never leaves your device.</string>
+    <string name="onboarding_notification_title">Ride notifications</string>
+    <string name="onboarding_notification_body">A notification keeps ride tracking running reliably while your screen is off.</string>
+    <string name="onboarding_next">Next</string>
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_permission_continue">Continue</string>
+    <string name="onboarding_permission_open_settings">Open Settings</string>
+    <string name="onboarding_permission_skip">Skip for now</string>
+</resources>

@@ -65,6 +65,37 @@ val MIGRATION_5_6 =
         }
     }
 
+/**
+ * v6 → v7: adds the `hasCompletedOnboarding` flag to `user_settings`, backing
+ * the first-run onboarding walkthrough. Two parts: the `ALTER TABLE` defaults
+ * any *existing* row to `true` — an upgrading user has already used the app
+ * and must never see onboarding retroactively. The `INSERT OR IGNORE` then
+ * grandfathers upgrading users who have no `user_settings` row at all (never
+ * called `UserSettingsRepository.save()`) by seeding a fully-defaulted,
+ * already-onboarded row — since Room only ever runs this migration on a
+ * device that already had a prior-version database file, any invocation
+ * means an upgrade, never a fresh install, so it's safe to unconditionally
+ * ensure such a row exists. A genuinely fresh install never runs this
+ * migration at all and falls back to the Kotlin-side
+ * `UserSettings.hasCompletedOnboarding = false` default.
+ */
+val MIGRATION_6_7 =
+    object : Migration(6, 7) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "ALTER TABLE `user_settings` ADD COLUMN `hasCompletedOnboarding` INTEGER NOT NULL DEFAULT 1",
+            )
+            db.execSQL(
+                "INSERT OR IGNORE INTO `user_settings` (" +
+                    "`id`, `weightKg`, `age`, `bikeWeightKg`, `bikeType`, `languageCode`, `units`, " +
+                    "`showDistance`, `showMovingTime`, `showAverageSpeed`, `showMaxSpeed`, `showElevationGain`, " +
+                    "`showCalories`, `showAltitude`, `showGrade`, `showCompass`, `showPower`, `keepScreenOn`, " +
+                    "`hasCompletedOnboarding`" +
+                    ") VALUES (1, 75, 30, 10.0, 'ROAD', 'en', 'METRIC', 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1)",
+            )
+        }
+    }
+
 val databaseModule =
     module {
         single {
@@ -73,7 +104,7 @@ val databaseModule =
                     androidContext(),
                     AppDatabase::class.java,
                     "inkride.db",
-                ).addMigrations(MIGRATION_4_5, MIGRATION_5_6)
+                ).addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                 .fallbackToDestructiveMigration()
                 .build()
         }

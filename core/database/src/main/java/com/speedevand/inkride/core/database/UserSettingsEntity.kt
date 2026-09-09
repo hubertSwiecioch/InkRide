@@ -29,4 +29,5 @@ data class UserSettingsEntity(
     val hrZoneMinBpm: Int? = null,
     val hrZoneMaxBpm: Int? = null,
     val activeBikeProfileId: Long? = null,
+    val hasCompletedOnboarding: Boolean = false,
 )

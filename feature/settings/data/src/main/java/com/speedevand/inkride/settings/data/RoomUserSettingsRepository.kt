@@ -68,6 +68,7 @@ class RoomUserSettingsRepository(
                             hrZoneMaxBpm = entity.hrZoneMaxBpm,
                         ),
                     activeBikeProfileId = entity.activeBikeProfileId,
+                    hasCompletedOnboarding = entity.hasCompletedOnboarding,
                 )
             } else {
                 UserSettings(
@@ -106,6 +107,7 @@ class RoomUserSettingsRepository(
                     hrZoneMinBpm = settings.alerts.hrZoneMinBpm,
                     hrZoneMaxBpm = settings.alerts.hrZoneMaxBpm,
                     activeBikeProfileId = settings.activeBikeProfileId,
+                    hasCompletedOnboarding = settings.hasCompletedOnboarding,
                 ),
             )
             Result.Success(Unit)

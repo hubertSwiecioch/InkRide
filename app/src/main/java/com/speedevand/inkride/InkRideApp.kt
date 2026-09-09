@@ -7,6 +7,7 @@ import com.speedevand.inkride.core.database.databaseModule
 import com.speedevand.inkride.dashboard.presentation.dashboardPresentationModule
 import com.speedevand.inkride.history.data.historyDataModule
 import com.speedevand.inkride.history.presentation.historyPresentationModule
+import com.speedevand.inkride.onboarding.presentation.onboardingPresentationModule
 import com.speedevand.inkride.settings.data.settingsDataModule
 import com.speedevand.inkride.settings.presentation.settingsPresentationModule
 import com.speedevand.inkride.tracking.data.trackingDataModule
@@ -25,6 +26,7 @@ class InkRideApp : Application() {
                 settingsDataModule,
                 settingsPresentationModule,
                 dashboardPresentationModule,
+                onboardingPresentationModule,
                 historyPresentationModule,
                 bleDataModule,
                 blePresentationModule,

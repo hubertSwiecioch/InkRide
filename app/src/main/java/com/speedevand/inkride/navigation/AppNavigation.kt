@@ -12,11 +12,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavDestination.Companion.hasRoute
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
@@ -31,14 +31,23 @@ import com.speedevand.inkride.core.domain.navigation.RideHistoryRoute
 import com.speedevand.inkride.core.domain.navigation.SettingsRoute
 import com.speedevand.inkride.dashboard.presentation.dashboardGraph
 import com.speedevand.inkride.history.presentation.historyGraph
+import com.speedevand.inkride.onboarding.presentation.onboardingGraph
 import com.speedevand.inkride.settings.presentation.settingsGraph
 import com.speedevand.inkride.tracking.service.TrackingService
 
 @Composable
-fun AppNavigation() {
+fun AppNavigation(startDestination: Any) {
     val navController = rememberNavController()
     val currentBackStack by navController.currentBackStackEntryAsState()
     val currentDestination = currentBackStack?.destination
+    // Freeze the incoming start destination on first composition. NavHost
+    // rebuilds its internal graph (and resets the back stack) whenever this
+    // value changes object-identity across recompositions -- MainActivity
+    // recomputes it on every UserSettings emission, including the one
+    // onboarding's own completion save triggers, which would otherwise race
+    // with the explicit navigate() call already wired into onboarding's
+    // completion handler.
+    val frozenStartDestination = remember { startDestination }
 
     val items =
         listOf(
@@ -71,7 +80,7 @@ fun AppNavigation() {
                             selected = selected,
                             onClick = {
                                 navController.navigate(item.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
+                                    popUpTo(DashboardGraph) {
                                         saveState = true
                                     }
                                     launchSingleTop = true
@@ -93,7 +102,7 @@ fun AppNavigation() {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = DashboardGraph,
+            startDestination = frozenStartDestination,
             // consumeWindowInsets marks this region as already handled so the nested
             // per-screen Scaffolds (each with their own contentWindowInsets) don't
             // apply the same status/navigation bar inset a second time.
@@ -107,6 +116,7 @@ fun AppNavigation() {
             popExitTransition = { ExitTransition.None },
         ) {
             dashboardGraph(navController, TrackingService::class.java)
+            onboardingGraph(navController)
             historyGraph(navController)
             settingsGraph(navController)
             bleGraph(navController)
