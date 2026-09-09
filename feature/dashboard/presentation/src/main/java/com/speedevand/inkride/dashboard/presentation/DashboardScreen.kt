@@ -51,6 +51,7 @@ import org.koin.androidx.compose.koinViewModel
 @Composable
 fun DashboardRoot(
     onOpenSettings: () -> Unit,
+    onSearchDestination: () -> Unit,
     onStartService: () -> Unit,
     onStopService: () -> Unit,
 ) {
@@ -125,10 +126,10 @@ fun DashboardRoot(
     DashboardScreen(
         state = state,
         onAction = { action ->
-            if (action is DashboardAction.OnOpenSettingsClick) {
-                onOpenSettings()
-            } else {
-                viewModel.onAction(action)
+            when (action) {
+                DashboardAction.OnOpenSettingsClick -> onOpenSettings()
+                DashboardAction.OnSearchDestinationClick -> onSearchDestination()
+                else -> viewModel.onAction(action)
             }
         },
     )

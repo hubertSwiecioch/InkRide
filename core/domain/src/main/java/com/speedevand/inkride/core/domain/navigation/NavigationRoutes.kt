@@ -36,3 +36,6 @@ data object BleSensorsRoute
 
 @Serializable
 data object BikeProfilesRoute
+
+@Serializable
+data object DestinationSearchRoute
