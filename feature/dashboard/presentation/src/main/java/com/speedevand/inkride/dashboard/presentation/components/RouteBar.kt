@@ -103,6 +103,41 @@ fun ClearRouteConfirmationSheet(
     }
 }
 
+/**
+ * Choice sheet shown when the topbar's route icon is tapped with no route
+ * active: load a GPX file from disk, or search for a destination and route
+ * to it. Both close the sheet immediately on selection.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun RouteSourceSheet(
+    onDismiss: () -> Unit,
+    onLoadGpxFile: () -> Unit,
+    onSearchDestination: () -> Unit,
+) {
+    ModalBottomSheetMMD(onDismissRequest = onDismiss) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(DesignConstants.PADDING_LARGE),
+            verticalArrangement = Arrangement.spacedBy(DesignConstants.PADDING_MEDIUM),
+        ) {
+            TextMMD(
+                text = stringResource(R.string.dashboard_route_source_title),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+            )
+            ButtonMMD(onClick = onLoadGpxFile, modifier = Modifier.fillMaxWidth()) {
+                TextMMD(text = stringResource(R.string.dashboard_route_load_gpx))
+            }
+            OutlinedButtonMMD(onClick = onSearchDestination, modifier = Modifier.fillMaxWidth()) {
+                TextMMD(text = stringResource(R.string.dashboard_route_search_destination))
+            }
+        }
+    }
+}
+
 @Composable
 private fun RoutePrimaryLine(route: RouteProgressUi) {
     when {

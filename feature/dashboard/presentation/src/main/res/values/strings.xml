@@ -68,6 +68,9 @@
     <string name="dashboard_route_next_turn">Next turn in %1$s</string>
     <string name="dashboard_route_next_turn_named">Next turn in %1$s · %2$s</string>
     <string name="dashboard_route_off">⚠ Off route by %1$s</string>
+    <string name="dashboard_route_source_title">Add a route</string>
+    <string name="dashboard_route_load_gpx">Load GPX file</string>
+    <string name="dashboard_route_search_destination">Search destination</string>
     <string name="destination_search_title">Search destination</string>
     <string name="destination_search_back">Back</string>
     <string name="destination_search_hint">Search for a place</string>

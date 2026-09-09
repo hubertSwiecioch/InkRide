@@ -68,6 +68,9 @@
     <string name="dashboard_route_next_turn">Następny zwrot za %1$s</string>
     <string name="dashboard_route_next_turn_named">Następny zwrot za %1$s · %2$s</string>
     <string name="dashboard_route_off">⚠ Poza trasą o %1$s</string>
+    <string name="dashboard_route_source_title">Dodaj trasę</string>
+    <string name="dashboard_route_load_gpx">Wczytaj plik GPX</string>
+    <string name="dashboard_route_search_destination">Wyszukaj cel</string>
     <string name="destination_search_title">Wyszukaj cel</string>
     <string name="destination_search_back">Wstecz</string>
     <string name="destination_search_hint">Szukaj miejsca</string>
