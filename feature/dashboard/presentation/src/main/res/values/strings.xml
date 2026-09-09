@@ -68,6 +68,9 @@
     <string name="dashboard_route_next_turn">Next turn in %1$s</string>
     <string name="dashboard_route_next_turn_named">Next turn in %1$s · %2$s</string>
     <string name="dashboard_route_off">⚠ Off route by %1$s</string>
+    <string name="dashboard_route_turn_left">Turn left</string>
+    <string name="dashboard_route_turn_right">Turn right</string>
+    <string name="dashboard_route_turn_straight">Continue straight</string>
     <string name="dashboard_route_error_read">Couldn\'t read the selected file.</string>
     <string name="dashboard_route_error_empty">No track or route points found in that file.</string>
     <string name="dashboard_route_error_malformed">That file isn\'t a valid GPX route.</string>

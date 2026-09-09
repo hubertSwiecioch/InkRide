@@ -117,6 +117,58 @@ class RouteFollowerTest {
     }
 
     @Test
+    fun `a corner turning from east to south reports a right turn`() {
+        val rightTurn =
+            route.copy(
+                points = listOf(RoutePoint(52.0, 21.0), RoutePoint(52.0, 21.01), RoutePoint(51.99, 21.01)),
+                waypoints = listOf(RouteWaypoint(52.0, 21.01, "Corner")),
+            )
+
+        val progress = follower.evaluate(rightTurn, latitude = 52.0, longitude = 21.005)
+
+        assertThat(progress.nextTurnDirection).isEqualTo(TurnDirection.RIGHT)
+    }
+
+    @Test
+    fun `a corner turning from east to north reports a left turn`() {
+        val leftTurn =
+            route.copy(
+                points = listOf(RoutePoint(52.0, 21.0), RoutePoint(52.0, 21.01), RoutePoint(52.01, 21.01)),
+                waypoints = listOf(RouteWaypoint(52.0, 21.01, "Corner")),
+            )
+
+        val progress = follower.evaluate(leftTurn, latitude = 52.0, longitude = 21.005)
+
+        assertThat(progress.nextTurnDirection).isEqualTo(TurnDirection.LEFT)
+    }
+
+    @Test
+    fun `a waypoint on a straight stretch reports no turn`() {
+        val straight =
+            route.copy(
+                points = listOf(RoutePoint(52.0, 21.0), RoutePoint(52.0, 21.005), RoutePoint(52.0, 21.01)),
+                waypoints = listOf(RouteWaypoint(52.0, 21.005, "Midpoint")),
+            )
+
+        val progress = follower.evaluate(straight, latitude = 52.0, longitude = 21.0)
+
+        assertThat(progress.nextTurnDirection).isEqualTo(TurnDirection.STRAIGHT)
+    }
+
+    @Test
+    fun `a single-point route reports no turn direction`() {
+        val singlePoint =
+            route.copy(
+                points = listOf(RoutePoint(52.0, 21.0)),
+                waypoints = listOf(RouteWaypoint(52.0, 21.001, "Only")),
+            )
+
+        val progress = follower.evaluate(singlePoint, latitude = 52.0, longitude = 21.0)
+
+        assertThat(progress.nextTurnDirection).isNull()
+    }
+
+    @Test
     fun `duplicate consecutive route points produce a finite distance, not NaN`() {
         val duplicatePoints =
             route.copy(points = listOf(RoutePoint(52.0, 21.0), RoutePoint(52.0, 21.0)))

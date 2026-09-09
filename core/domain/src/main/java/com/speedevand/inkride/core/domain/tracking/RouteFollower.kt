@@ -1,8 +1,18 @@
 package com.speedevand.inkride.core.domain.tracking
 
 import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.atan2
 import kotlin.math.cos
+import kotlin.math.sin
 import kotlin.math.sqrt
+
+/** Which way the rider must turn at the next route waypoint. */
+enum class TurnDirection {
+    LEFT,
+    RIGHT,
+    STRAIGHT,
+}
 
 /**
  * Live progress along a loaded [PlannedRoute].
@@ -11,13 +21,16 @@ import kotlin.math.sqrt
  * point on the route polyline; [isOffRoute] is true once that exceeds the
  * follower's threshold. [distanceToNextWaypointM] is measured *along the route*
  * to the next turn marker ahead (or to the route's end when the file has no
- * waypoints), null only when the route has no points at all.
+ * waypoints), null only when the route has no points at all. [nextTurnDirection]
+ * is derived from the route geometry around that marker (not the waypoint's
+ * name), null when there's no polyline to derive it from.
  */
 data class RouteProgress(
     val distanceToRouteM: Double,
     val isOffRoute: Boolean,
     val distanceToNextWaypointM: Double? = null,
     val nextWaypointName: String? = null,
+    val nextTurnDirection: TurnDirection? = null,
 )
 
 /**
@@ -69,16 +82,23 @@ class RouteFollower(
             isOffRoute = snap.distanceM > offRouteThresholdM,
             distanceToNextWaypointM = next?.distanceM,
             nextWaypointName = next?.name,
+            nextTurnDirection = next?.direction,
         )
     }
 
     private class Prepared(
         val route: PlannedRoute,
         val cumulative: DoubleArray,
-        // Each turn marker's along-route position + name, with the route end as a
-        // trailing unnamed fallback so the readout shows distance-to-finish once
-        // every named turn is behind the rider.
-        val waypointMarkers: List<Pair<Double, String?>>,
+        // Each turn marker's along-route position, name and turn direction, with
+        // the route end as a trailing unnamed fallback so the readout shows
+        // distance-to-finish once every named turn is behind the rider.
+        val waypointMarkers: List<Marker>,
+    )
+
+    private data class Marker(
+        val cumulativeM: Double,
+        val name: String?,
+        val direction: TurnDirection,
     )
 
     private data class Snap(
@@ -89,6 +109,7 @@ class RouteFollower(
     private data class NextWaypoint(
         val distanceM: Double,
         val name: String?,
+        val direction: TurnDirection,
     )
 
     private data class Projection(
@@ -105,9 +126,10 @@ class RouteFollower(
         val markers =
             buildList {
                 route.waypoints.forEach { wp ->
-                    add(snap(pts, cumulative, wp.latitude, wp.longitude).cumulativeM to wp.name)
+                    val cumulativeM = snap(pts, cumulative, wp.latitude, wp.longitude).cumulativeM
+                    add(Marker(cumulativeM, wp.name, turnDirectionAt(pts, cumulative, cumulativeM)))
                 }
-                add(cumulative.last() to null)
+                add(Marker(cumulative.last(), null, TurnDirection.STRAIGHT))
             }
         return Prepared(route, cumulative, markers).also { prepared = it }
     }
@@ -153,13 +175,68 @@ class RouteFollower(
      * keeps showing distance-to-finish to the end of the ride.
      */
     private fun nextWaypoint(
-        markers: List<Pair<Double, String?>>,
+        markers: List<Marker>,
         currentCumulative: Double,
     ): NextWaypoint? =
         markers
-            .filter { it.first > currentCumulative + AHEAD_EPSILON_M }
-            .minByOrNull { it.first }
-            ?.let { NextWaypoint(distanceM = it.first - currentCumulative, name = it.second) }
+            .filter { it.cumulativeM > currentCumulative + AHEAD_EPSILON_M }
+            .minByOrNull { it.cumulativeM }
+            ?.let {
+                NextWaypoint(
+                    distanceM = it.cumulativeM - currentCumulative,
+                    name = it.name,
+                    direction = it.direction,
+                )
+            }
+
+    /**
+     * The turn direction at the route vertex nearest [atCumulativeM]: the signed
+     * bearing change between the polyline segment arriving at that vertex and the
+     * one leaving it, classified against [TURN_THRESHOLD_DEG]. Falls back to
+     * [TurnDirection.STRAIGHT] at the route's start/end, where only one of the two
+     * segments exists.
+     */
+    private fun turnDirectionAt(
+        pts: List<RoutePoint>,
+        cumulative: DoubleArray,
+        atCumulativeM: Double,
+    ): TurnDirection {
+        val i = cumulative.indices.minByOrNull { abs(cumulative[it] - atCumulativeM) } ?: 0
+        val before = if (i > 0) bearing(pts[i - 1], pts[i]) else null
+        val after = if (i < pts.size - 1) bearing(pts[i], pts[i + 1]) else null
+        if (before == null || after == null) return TurnDirection.STRAIGHT
+
+        val delta = angleDelta(before, after)
+        return when {
+            abs(delta) < TURN_THRESHOLD_DEG -> TurnDirection.STRAIGHT
+            delta > 0 -> TurnDirection.RIGHT
+            else -> TurnDirection.LEFT
+        }
+    }
+
+    /** Initial bearing from a to b, in degrees clockwise from north [0, 360). */
+    private fun bearing(
+        a: RoutePoint,
+        b: RoutePoint,
+    ): Double {
+        val lat1 = a.latitude.toRadians()
+        val lat2 = b.latitude.toRadians()
+        val dLon = (b.longitude - a.longitude).toRadians()
+        val y = sin(dLon) * cos(lat2)
+        val x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dLon)
+        return (atan2(y, x) * 180.0 / PI + 360.0) % 360.0
+    }
+
+    /** Signed difference from one bearing to another, normalized to (-180, 180]. */
+    private fun angleDelta(
+        fromDeg: Double,
+        toDeg: Double,
+    ): Double {
+        var d = (toDeg - fromDeg) % 360.0
+        if (d > 180.0) d -= 360.0
+        if (d <= -180.0) d += 360.0
+        return d
+    }
 
     /** Projects P=(lat,lon) onto segment a→b in a local metre plane centred at P. */
     private fun projectToSegment(
@@ -192,5 +269,9 @@ class RouteFollower(
         // Ignore turn markers essentially at the rider's feet so the readout
         // advances to the genuinely-next turn rather than sticking at ~0 m.
         const val AHEAD_EPSILON_M = 5.0
+
+        // Bearing changes smaller than this are GPS/digitization noise on an
+        // otherwise straight road, not an intentional turn.
+        const val TURN_THRESHOLD_DEG = 20.0
     }
 }
