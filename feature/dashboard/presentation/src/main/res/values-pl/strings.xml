@@ -68,6 +68,12 @@
     <string name="dashboard_route_next_turn">Następny zwrot za %1$s</string>
     <string name="dashboard_route_next_turn_named">Następny zwrot za %1$s · %2$s</string>
     <string name="dashboard_route_off">⚠ Poza trasą o %1$s</string>
+    <string name="destination_search_error_network">Nie udało się połączyć z wyszukiwarką. Sprawdź połączenie i spróbuj ponownie.</string>
+    <string name="destination_search_error_no_results">Nie znaleziono miejsc</string>
+    <string name="destination_search_error_no_route">Nie znaleziono trasy rowerowej do tego celu.</string>
+    <string name="destination_search_error_location_permission">Potrzebne jest uprawnienie do lokalizacji, aby ustalić Twoją pozycję.</string>
+    <string name="destination_search_error_location_timeout">Nie udało się ustalić pozycji GPS na czas.</string>
+    <string name="destination_search_error_location_unavailable">GPS jest niedostępny na tym urządzeniu.</string>
     <string name="dashboard_route_turn_left">Skręć w lewo</string>
     <string name="dashboard_route_turn_right">Skręć w prawo</string>
     <string name="dashboard_route_turn_straight">Jedź prosto</string>

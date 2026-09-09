@@ -68,6 +68,12 @@
     <string name="dashboard_route_next_turn">Next turn in %1$s</string>
     <string name="dashboard_route_next_turn_named">Next turn in %1$s · %2$s</string>
     <string name="dashboard_route_off">⚠ Off route by %1$s</string>
+    <string name="destination_search_error_network">Couldn\'t reach the search service. Check your connection and try again.</string>
+    <string name="destination_search_error_no_results">No places found</string>
+    <string name="destination_search_error_no_route">No cycling route found to that destination.</string>
+    <string name="destination_search_error_location_permission">Location permission is needed to find your current position.</string>
+    <string name="destination_search_error_location_timeout">Couldn\'t get your current location in time.</string>
+    <string name="destination_search_error_location_unavailable">GPS is unavailable on this device.</string>
     <string name="dashboard_route_turn_left">Turn left</string>
     <string name="dashboard_route_turn_right">Turn right</string>
     <string name="dashboard_route_turn_straight">Continue straight</string>
