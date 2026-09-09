@@ -4,6 +4,7 @@ import android.app.Application
 import com.speedevand.inkride.ble.data.bleDataModule
 import com.speedevand.inkride.ble.presentation.blePresentationModule
 import com.speedevand.inkride.core.database.databaseModule
+import com.speedevand.inkride.dashboard.data.dashboardDataModule
 import com.speedevand.inkride.dashboard.presentation.dashboardPresentationModule
 import com.speedevand.inkride.history.data.historyDataModule
 import com.speedevand.inkride.history.presentation.historyPresentationModule
@@ -22,6 +23,7 @@ class InkRideApp : Application() {
             modules(
                 databaseModule,
                 trackingDataModule,
+                dashboardDataModule,
                 historyDataModule,
                 settingsDataModule,
                 settingsPresentationModule,
