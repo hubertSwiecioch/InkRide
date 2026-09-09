@@ -1,17 +1,14 @@
 package com.speedevand.inkride.onboarding.presentation
 
-import androidx.compose.animation.core.snap
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,14 +51,6 @@ fun OnboardingScreen(
     state: OnboardingState,
     onAction: (OnboardingAction) -> Unit,
 ) {
-    val pagerState = rememberPagerState(pageCount = { state.steps.size })
-
-    LaunchedEffect(state.pageIndex) {
-        if (pagerState.currentPage != state.pageIndex) {
-            pagerState.animateScrollToPage(page = state.pageIndex, animationSpec = snap())
-        }
-    }
-
     val currentStep = state.steps[state.pageIndex]
 
     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
@@ -74,22 +63,22 @@ fun OnboardingScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
-            HorizontalPager(
-                state = pagerState,
-                // Page changes are button-driven only, keeping step order
-                // and permission gating deterministic (no accidental swipe
-                // past an unhandled permission step).
-                userScrollEnabled = false,
-                modifier = Modifier.weight(1f).testTag(OnboardingTestTags.PAGER),
-            ) { pageIndex ->
-                val step = state.steps[pageIndex]
-                if (step.isPermissionStep) {
+            // Page changes are button-driven only (no swipe gesture), so a
+            // pager buys nothing here -- rendering the current step directly
+            // guarantees exactly one step's content is ever composed at a
+            // time. An earlier HorizontalPager-based version could compose
+            // an adjacent permission step alongside the current one during
+            // its scroll transition, producing two nodes for the same test
+            // tag (PermissionPrimingPage's tags aren't step-specific) and
+            // failing instrumented tests on a real device.
+            Box(modifier = Modifier.weight(1f).testTag(OnboardingTestTags.PAGER)) {
+                if (currentStep.isPermissionStep) {
                     PermissionPrimingPage(
-                        step = step,
+                        step = currentStep,
                         onContinue = { onAction(OnboardingAction.OnNextClicked) },
                     )
                 } else {
-                    ValuePropPage(step = step)
+                    ValuePropPage(step = currentStep)
                 }
             }
 
