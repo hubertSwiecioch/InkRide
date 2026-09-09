@@ -8,4 +8,5 @@ val dashboardPresentationModule =
     module {
         single<GpxRouteLoader> { AndroidGpxRouteLoader(androidContext()) }
         viewModelOf(::DashboardViewModel)
+        viewModelOf(::DestinationSearchViewModel)
     }

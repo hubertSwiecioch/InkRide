@@ -13,7 +13,17 @@ sealed interface UiText {
     class StringResource(
         @StringRes val id: Int,
         val args: Array<Any> = emptyArray(),
-    ) : UiText
+    ) : UiText {
+        // Array properties break data-class-generated equals()/hashCode() (they'd
+        // compare by reference), so value equality is implemented by hand here.
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (other !is StringResource) return false
+            return id == other.id && args.contentEquals(other.args)
+        }
+
+        override fun hashCode(): Int = 31 * id + args.contentHashCode()
+    }
 
     @Composable
     fun asString(): String =

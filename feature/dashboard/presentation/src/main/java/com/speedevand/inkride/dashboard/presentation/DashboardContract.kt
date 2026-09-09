@@ -28,6 +28,8 @@ sealed interface DashboardAction {
 
     data object OnOpenSettingsClick : DashboardAction
 
+    data object OnSearchDestinationClick : DashboardAction
+
     data object OnRecordLapClick : DashboardAction
 
     data class OnSetGoal(

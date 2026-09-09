@@ -6,6 +6,7 @@ import com.speedevand.inkride.core.domain.tracking.PlannedRoute
 import com.speedevand.inkride.core.domain.tracking.RideGoal
 import com.speedevand.inkride.core.domain.tracking.RideMetrics
 import com.speedevand.inkride.core.domain.tracking.RouteProgress
+import com.speedevand.inkride.core.domain.tracking.TurnDirection
 import com.speedevand.inkride.core.toClockString
 import com.speedevand.inkride.dashboard.presentation.DashboardConstants.KM_TO_MI_FACTOR
 import com.speedevand.inkride.dashboard.presentation.DashboardConstants.M_TO_FT_FACTOR
@@ -80,13 +81,15 @@ fun goalProgressUi(
 
 /**
  * Formatted route-follow readout for the dashboard. [nextTurn] is the distance to
- * the next turn marker (null when none lies ahead); [offRoute] drives a static
- * E-Ink warning showing [offRouteDistance] off the planned line.
+ * the next turn marker (null when none lies ahead); [nextTurnDirection] is the
+ * geometry-derived turn to render as an arrow alongside it; [offRoute] drives a
+ * static E-Ink warning showing [offRouteDistance] off the planned line.
  */
 data class RouteProgressUi(
     val routeName: String?,
     val nextTurn: String?,
     val nextTurnName: String?,
+    val nextTurnDirection: TurnDirection?,
     val offRoute: Boolean,
     val offRouteDistance: String,
 )
@@ -101,6 +104,7 @@ fun routeProgressUi(
         routeName = route.name,
         nextTurn = progress?.distanceToNextWaypointM?.let { formatRouteDistance(it, imperial) },
         nextTurnName = progress?.nextWaypointName,
+        nextTurnDirection = progress?.nextTurnDirection,
         offRoute = progress?.isOffRoute == true,
         offRouteDistance = progress?.distanceToRouteM?.let { formatRouteDistance(it, imperial) }.orEmpty(),
     )

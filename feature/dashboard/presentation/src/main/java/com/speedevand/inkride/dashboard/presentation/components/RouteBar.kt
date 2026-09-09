@@ -5,17 +5,28 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Straight
+import androidx.compose.material.icons.filled.TurnLeft
+import androidx.compose.material.icons.filled.TurnRight
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import com.mudita.mmd.components.bottom_sheet.ModalBottomSheetMMD
 import com.mudita.mmd.components.buttons.ButtonMMD
 import com.mudita.mmd.components.buttons.OutlinedButtonMMD
 import com.mudita.mmd.components.text.TextMMD
+import com.speedevand.inkride.core.domain.tracking.TurnDirection
 import com.speedevand.inkride.core.presentation.DesignConstants
+import com.speedevand.inkride.dashboard.presentation.DashboardTestTags
 import com.speedevand.inkride.dashboard.presentation.R
 import com.speedevand.inkride.dashboard.presentation.model.RouteProgressUi
 
@@ -92,6 +103,41 @@ fun ClearRouteConfirmationSheet(
     }
 }
 
+/**
+ * Choice sheet shown when the topbar's route icon is tapped with no route
+ * active: load a GPX file from disk, or search for a destination and route
+ * to it. Both close the sheet immediately on selection.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun RouteSourceSheet(
+    onDismiss: () -> Unit,
+    onLoadGpxFile: () -> Unit,
+    onSearchDestination: () -> Unit,
+) {
+    ModalBottomSheetMMD(onDismissRequest = onDismiss) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(DesignConstants.PADDING_LARGE),
+            verticalArrangement = Arrangement.spacedBy(DesignConstants.PADDING_MEDIUM),
+        ) {
+            TextMMD(
+                text = stringResource(R.string.dashboard_route_source_title),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+            )
+            ButtonMMD(onClick = onLoadGpxFile, modifier = Modifier.fillMaxWidth()) {
+                TextMMD(text = stringResource(R.string.dashboard_route_load_gpx))
+            }
+            OutlinedButtonMMD(onClick = onSearchDestination, modifier = Modifier.fillMaxWidth()) {
+                TextMMD(text = stringResource(R.string.dashboard_route_search_destination))
+            }
+        }
+    }
+}
+
 @Composable
 private fun RoutePrimaryLine(route: RouteProgressUi) {
     when {
@@ -105,15 +151,24 @@ private fun RoutePrimaryLine(route: RouteProgressUi) {
         }
 
         route.nextTurn != null -> {
-            TextMMD(
-                text =
-                    route.nextTurnName?.let { name ->
-                        stringResource(R.string.dashboard_route_next_turn_named, route.nextTurn, name)
-                    } ?: stringResource(R.string.dashboard_route_next_turn, route.nextTurn),
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(DesignConstants.PADDING_TINY),
+            ) {
+                route.nextTurnDirection?.let { direction ->
+                    TurnDirectionIcon(direction)
+                }
+                TextMMD(
+                    text =
+                        route.nextTurnName?.let { name ->
+                            stringResource(R.string.dashboard_route_next_turn_named, route.nextTurn, name)
+                        } ?: stringResource(R.string.dashboard_route_next_turn, route.nextTurn),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.testTag(DashboardTestTags.ROUTE_NEXT_TURN_TEXT),
+                )
+            }
         }
 
         else -> {
@@ -125,4 +180,29 @@ private fun RoutePrimaryLine(route: RouteProgressUi) {
             )
         }
     }
+}
+
+/**
+ * Direction arrow for the next turn, derived from the route's geometry (not the
+ * waypoint's name — see [TurnDirection]). No dedicated MMD icon exists for
+ * turn-by-turn direction, so this uses the same raw [Icon] + Material Icons
+ * pattern already used throughout the app (e.g. [DashboardTopBar]).
+ */
+@Composable
+private fun TurnDirectionIcon(direction: TurnDirection) {
+    val (icon, description) =
+        when (direction) {
+            TurnDirection.LEFT -> Icons.Filled.TurnLeft to R.string.dashboard_route_turn_left
+            TurnDirection.RIGHT -> Icons.Filled.TurnRight to R.string.dashboard_route_turn_right
+            TurnDirection.STRAIGHT -> Icons.Filled.Straight to R.string.dashboard_route_turn_straight
+        }
+    Icon(
+        imageVector = icon,
+        contentDescription = stringResource(description),
+        tint = MaterialTheme.colorScheme.primary,
+        modifier =
+            Modifier
+                .size(20.dp)
+                .testTag(DashboardTestTags.ROUTE_NEXT_TURN_ICON),
+    )
 }

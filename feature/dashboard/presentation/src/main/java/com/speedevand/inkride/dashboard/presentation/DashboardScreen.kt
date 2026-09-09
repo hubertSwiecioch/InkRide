@@ -41,6 +41,7 @@ import com.speedevand.inkride.dashboard.presentation.components.GoalBottomSheet
 import com.speedevand.inkride.dashboard.presentation.components.InfoBar
 import com.speedevand.inkride.dashboard.presentation.components.LapGoalStatus
 import com.speedevand.inkride.dashboard.presentation.components.MetricsPager
+import com.speedevand.inkride.dashboard.presentation.components.RouteSourceSheet
 import com.speedevand.inkride.dashboard.presentation.components.RouteStatus
 import com.speedevand.inkride.dashboard.presentation.components.VerticalPagerIndicator
 import com.speedevand.inkride.dashboard.presentation.components.visibleDashboardPages
@@ -51,6 +52,7 @@ import org.koin.androidx.compose.koinViewModel
 @Composable
 fun DashboardRoot(
     onOpenSettings: () -> Unit,
+    onSearchDestination: () -> Unit,
     onStartService: () -> Unit,
     onStopService: () -> Unit,
 ) {
@@ -125,10 +127,10 @@ fun DashboardRoot(
     DashboardScreen(
         state = state,
         onAction = { action ->
-            if (action is DashboardAction.OnOpenSettingsClick) {
-                onOpenSettings()
-            } else {
-                viewModel.onAction(action)
+            when (action) {
+                DashboardAction.OnOpenSettingsClick -> onOpenSettings()
+                DashboardAction.OnSearchDestinationClick -> onSearchDestination()
+                else -> viewModel.onAction(action)
             }
         },
     )
@@ -175,6 +177,21 @@ fun DashboardScreen(
             contract = ActivityResultContracts.OpenDocument(),
         ) { uri -> uri?.let { onAction(DashboardAction.OnRouteSelected(it)) } }
 
+    var showRouteSourceSheet by remember { mutableStateOf(false) }
+    if (showRouteSourceSheet) {
+        RouteSourceSheet(
+            onDismiss = { showRouteSourceSheet = false },
+            onLoadGpxFile = {
+                showRouteSourceSheet = false
+                routePicker.launch(arrayOf("*/*"))
+            },
+            onSearchDestination = {
+                showRouteSourceSheet = false
+                onAction(DashboardAction.OnSearchDestinationClick)
+            },
+        )
+    }
+
     val pagerState =
         rememberPagerState(pageCount = { visibleDashboardPages(state.userSettings).size })
 
@@ -184,7 +201,7 @@ fun DashboardScreen(
             DashboardTopBar(
                 status = state.status,
                 hasRoute = state.route != null,
-                onLoadRoute = { routePicker.launch(arrayOf("*/*")) },
+                onLoadRoute = { showRouteSourceSheet = true },
                 onClearRoute = { showClearRouteConfirm = true },
                 onRecordLap = { onAction(DashboardAction.OnRecordLapClick) },
                 onOpenGoal = { showGoalSheet = true },
