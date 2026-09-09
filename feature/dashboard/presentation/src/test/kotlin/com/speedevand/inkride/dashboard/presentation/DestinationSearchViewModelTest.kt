@@ -5,6 +5,7 @@ import assertk.assertThat
 import assertk.assertions.hasSize
 import assertk.assertions.isEqualTo
 import assertk.assertions.isNull
+import assertk.assertions.isTrue
 import com.speedevand.inkride.core.domain.DataError
 import com.speedevand.inkride.core.domain.EmptyResult
 import com.speedevand.inkride.core.domain.Result
@@ -32,6 +33,7 @@ import com.speedevand.inkride.core.domain.tracking.RideTracker
 import com.speedevand.inkride.core.domain.tracking.RoutingError
 import com.speedevand.inkride.core.domain.tracking.RoutingService
 import com.speedevand.inkride.core.domain.tracking.SensorError
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -39,6 +41,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -105,6 +108,30 @@ class DestinationSearchViewModelTest {
         }
 
     @Test
+    fun `deleting back below the minimum length and retyping the same query retries after a failure`() =
+        runTest(testDispatcher) {
+            placeSearchService.nextResult = Result.Error(PlaceSearchError.NETWORK_FAILED)
+            val vm = viewModel()
+
+            vm.onAction(DestinationSearchAction.OnQueryChanged("War"))
+            advanceTimeBy(700L)
+            assertThat(placeSearchService.queriesReceived).isEqualTo(listOf("War"))
+
+            // Delete back below MIN_QUERY_LENGTH (filtered out, never searched) and
+            // retype the exact same query -- this must NOT be suppressed as a
+            // duplicate by distinctUntilChanged, or a failed search could never be
+            // retried by the natural delete-and-retype gesture.
+            placeSearchService.nextResult = Result.Success(listOf(PlaceResult("Warsaw, Poland", 52.2297, 21.0122)))
+            vm.onAction(DestinationSearchAction.OnQueryChanged("Wa"))
+            advanceTimeBy(100L)
+            vm.onAction(DestinationSearchAction.OnQueryChanged("War"))
+            advanceTimeBy(700L)
+
+            assertThat(placeSearchService.queriesReceived).isEqualTo(listOf("War", "War"))
+            assertThat(vm.state.value.results).hasSize(1)
+        }
+
+    @Test
     fun `a network failure while searching surfaces a ShowError event`() =
         runTest(testDispatcher) {
             placeSearchService.nextResult = Result.Error(PlaceSearchError.NETWORK_FAILED)
@@ -148,6 +175,28 @@ class DestinationSearchViewModelTest {
             }
             assertThat(routingService.lastRequest).isNull()
         }
+
+    @Test
+    fun `a second result selection while routing is already in flight is ignored`() =
+        runTest(testDispatcher) {
+            val slowLocationProvider = SuspendingCurrentLocationProvider()
+            routingService.nextResult = Result.Success(PlannedRoute(name = null, points = emptyList(), waypoints = emptyList()))
+            val vm = DestinationSearchViewModel(placeSearchService, routingService, slowLocationProvider, rideTracker)
+            val selected = PlaceResult("Warsaw, Poland", 52.2297, 21.0122)
+
+            vm.onAction(DestinationSearchAction.OnResultSelected(selected))
+            assertThat(vm.state.value.isRouting).isTrue()
+
+            // A second tap while the first request is still in flight (e.g. a slow
+            // GPS fix) must be a no-op -- otherwise two concurrent routing requests
+            // fire and the last one to land silently wins.
+            vm.onAction(DestinationSearchAction.OnResultSelected(selected))
+
+            slowLocationProvider.gate.complete(Unit)
+            advanceUntilIdle()
+
+            assertThat(routingService.callCount).isEqualTo(1)
+        }
 }
 
 private class FakePlaceSearchService : PlaceSearchService {
@@ -170,6 +219,7 @@ private data class RouteRequest(
 private class FakeRoutingService : RoutingService {
     var nextResult: Result<PlannedRoute, RoutingError> = Result.Error(RoutingError.NO_ROUTE_FOUND)
     var lastRequest: RouteRequest? = null
+    var callCount = 0
 
     override suspend fun route(
         originLatitude: Double,
@@ -177,6 +227,7 @@ private class FakeRoutingService : RoutingService {
         destinationLatitude: Double,
         destinationLongitude: Double,
     ): Result<PlannedRoute, RoutingError> {
+        callCount++
         lastRequest = RouteRequest(originLatitude, originLongitude, destinationLatitude, destinationLongitude)
         return nextResult
     }
@@ -186,6 +237,22 @@ private class FakeCurrentLocationProvider : CurrentLocationProvider {
     var nextResult: Result<LocationFix, LocationError> = Result.Error(LocationError.PROVIDER_UNAVAILABLE)
 
     override suspend fun getCurrentLocation(): Result<LocationFix, LocationError> = nextResult
+}
+
+/**
+ * Stays suspended in [getCurrentLocation] until [gate] is completed, so a test
+ * can assert on state while a "location request" is still in flight -- e.g.
+ * that a second [DestinationSearchAction.OnResultSelected] tap is ignored
+ * while the first is still awaiting a fix.
+ */
+private class SuspendingCurrentLocationProvider : CurrentLocationProvider {
+    val gate = CompletableDeferred<Unit>()
+    var nextResult: Result<LocationFix, LocationError> = Result.Success(LocationFix(52.0, 21.0))
+
+    override suspend fun getCurrentLocation(): Result<LocationFix, LocationError> {
+        gate.await()
+        return nextResult
+    }
 }
 
 private fun testRideTracker(): RideTracker =

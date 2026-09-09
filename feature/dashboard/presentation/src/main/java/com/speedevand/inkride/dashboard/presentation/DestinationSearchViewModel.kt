@@ -40,9 +40,9 @@ class DestinationSearchViewModel(
     init {
         viewModelScope.launch {
             queryFlow
+                .distinctUntilChanged()
                 .debounce(SEARCH_DEBOUNCE_MS)
                 .filter { it.length >= MIN_QUERY_LENGTH }
-                .distinctUntilChanged()
                 .collectLatest { query -> performSearch(query) }
         }
     }
@@ -78,6 +78,7 @@ class DestinationSearchViewModel(
     }
 
     private fun onResultSelected(result: PlaceResult) {
+        if (_state.value.isRouting) return
         viewModelScope.launch {
             _state.update { it.copy(isRouting = true) }
 

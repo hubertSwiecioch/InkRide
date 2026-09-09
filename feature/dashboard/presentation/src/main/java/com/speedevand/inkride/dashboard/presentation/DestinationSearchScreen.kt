@@ -129,6 +129,7 @@ fun DestinationSearchScreen(
                 state.results.forEach { result ->
                     DestinationResultRow(
                         result = result,
+                        enabled = !state.isRouting,
                         onClick = { onAction(DestinationSearchAction.OnResultSelected(result)) },
                     )
                 }
@@ -140,6 +141,7 @@ fun DestinationSearchScreen(
 @Composable
 private fun DestinationResultRow(
     result: PlaceResult,
+    enabled: Boolean,
     onClick: () -> Unit,
 ) {
     TextMMD(
@@ -148,7 +150,7 @@ private fun DestinationResultRow(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clickable(onClick = onClick)
+                .clickable(enabled = enabled, onClick = onClick)
                 .padding(vertical = DesignConstants.PADDING_SMALL),
     )
 }
