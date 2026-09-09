@@ -68,6 +68,11 @@
     <string name="dashboard_route_next_turn">Next turn in %1$s</string>
     <string name="dashboard_route_next_turn_named">Next turn in %1$s · %2$s</string>
     <string name="dashboard_route_off">⚠ Off route by %1$s</string>
+    <string name="destination_search_title">Search destination</string>
+    <string name="destination_search_back">Back</string>
+    <string name="destination_search_hint">Search for a place</string>
+    <string name="destination_search_searching">Searching…</string>
+    <string name="destination_search_routing">Finding a route…</string>
     <string name="destination_search_error_network">Couldn\'t reach the search service. Check your connection and try again.</string>
     <string name="destination_search_error_no_results">No places found</string>
     <string name="destination_search_error_no_route">No cycling route found to that destination.</string>

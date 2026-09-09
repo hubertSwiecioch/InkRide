@@ -68,6 +68,11 @@
     <string name="dashboard_route_next_turn">Następny zwrot za %1$s</string>
     <string name="dashboard_route_next_turn_named">Następny zwrot za %1$s · %2$s</string>
     <string name="dashboard_route_off">⚠ Poza trasą o %1$s</string>
+    <string name="destination_search_title">Wyszukaj cel</string>
+    <string name="destination_search_back">Wstecz</string>
+    <string name="destination_search_hint">Szukaj miejsca</string>
+    <string name="destination_search_searching">Szukam…</string>
+    <string name="destination_search_routing">Wyznaczam trasę…</string>
     <string name="destination_search_error_network">Nie udało się połączyć z wyszukiwarką. Sprawdź połączenie i spróbuj ponownie.</string>
     <string name="destination_search_error_no_results">Nie znaleziono miejsc</string>
     <string name="destination_search_error_no_route">Nie znaleziono trasy rowerowej do tego celu.</string>
