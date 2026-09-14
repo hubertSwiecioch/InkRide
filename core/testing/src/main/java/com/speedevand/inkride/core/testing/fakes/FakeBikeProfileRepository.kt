@@ -12,7 +12,6 @@ class FakeBikeProfileRepository(
     initial: List<BikeProfile> = emptyList(),
 ) : BikeProfileRepository {
     private val profilesFlow = MutableStateFlow(initial)
-    private var nextId = (initial.maxOfOrNull { it.id } ?: 0L) + 1L
 
     private val _deletedIds = mutableListOf<Long>()
     val deletedIds: List<Long> get() = _deletedIds
@@ -25,7 +24,11 @@ class FakeBikeProfileRepository(
 
     override suspend fun upsert(profile: BikeProfile): Result<Long, DataError.Local> {
         upsertResult?.let { return it }
-        val id = if (profile.id == 0L) nextId++ else profile.id
+        // Derive the next id from current state, not a constructor-time counter:
+        // `emitProfiles` replaces the stored list wholesale, and a stale counter
+        // would re-assign an id that a seeded profile already holds, silently
+        // overwriting it instead of inserting.
+        val id = if (profile.id == 0L) (profilesFlow.value.maxOfOrNull { it.id } ?: 0L) + 1L else profile.id
         val stored = profile.copy(id = id)
         profilesFlow.value =
             profilesFlow.value
