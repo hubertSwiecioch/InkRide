@@ -5,6 +5,12 @@ plugins {
 
 android {
     namespace = "com.speedevand.inkride.core.database"
+
+    sourceSets {
+        getByName("androidTest") {
+            assets.srcDirs("$projectDir/schemas")
+        }
+    }
 }
 
 dependencies {
@@ -14,4 +20,11 @@ dependencies {
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
     testRuntimeOnly(libs.junit.vintage.engine)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.test.core)
+    androidTestImplementation(libs.androidx.test.rules)
+    androidTestImplementation(libs.androidx.room.testing)
+    androidTestImplementation(libs.assertk)
+    androidTestImplementation(libs.turbine)
+    androidTestImplementation(libs.kotlinx.coroutines.test)
 }
