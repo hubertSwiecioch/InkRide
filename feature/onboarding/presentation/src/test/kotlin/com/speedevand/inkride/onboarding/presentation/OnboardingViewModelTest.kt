@@ -5,6 +5,7 @@ import app.cash.turbine.test
 import assertk.assertThat
 import assertk.assertions.isEqualTo
 import com.speedevand.inkride.core.domain.settings.UserSettings
+import com.speedevand.inkride.core.testing.fakes.FakeUserSettingsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher

@@ -15,4 +15,6 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.mudita.mmd)
     implementation(libs.androidx.compose.ui)
+
+    testImplementation(project(":core:testing"))
 }
