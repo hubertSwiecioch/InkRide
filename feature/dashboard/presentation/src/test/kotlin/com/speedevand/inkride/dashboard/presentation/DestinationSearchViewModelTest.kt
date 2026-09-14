@@ -4,6 +4,7 @@ import app.cash.turbine.test
 import assertk.assertThat
 import assertk.assertions.hasSize
 import assertk.assertions.isEqualTo
+import assertk.assertions.isNull
 import assertk.assertions.isTrue
 import com.speedevand.inkride.core.domain.DataError
 import com.speedevand.inkride.core.domain.EmptyResult
@@ -32,6 +33,7 @@ import com.speedevand.inkride.core.domain.tracking.SensorError
 import com.speedevand.inkride.core.testing.fakes.FakeCurrentLocationProvider
 import com.speedevand.inkride.core.testing.fakes.FakePlaceSearchService
 import com.speedevand.inkride.core.testing.fakes.FakeRoutingService
+import com.speedevand.inkride.core.testing.fakes.RouteRequest
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -159,7 +161,7 @@ class DestinationSearchViewModelTest {
                 rideTracker.state.value.activeRoute
                     ?.name,
             ).isEqualTo("Warsaw, Poland")
-            assertThat(routingService.callCount).isEqualTo(1)
+            assertThat(routingService.lastRequest).isEqualTo(RouteRequest(52.0, 21.0, 52.2297, 21.0122))
         }
 
     @Test
@@ -172,7 +174,7 @@ class DestinationSearchViewModelTest {
                 vm.onAction(DestinationSearchAction.OnResultSelected(PlaceResult("Warsaw, Poland", 52.2297, 21.0122)))
                 assertThat(awaitItem()).isEqualTo(DestinationSearchEvent.ShowError(LocationError.TIMED_OUT.toUiText()))
             }
-            assertThat(routingService.callCount).isEqualTo(0)
+            assertThat(routingService.lastRequest).isNull()
         }
 
     @Test
