@@ -286,7 +286,7 @@ Expected: BUILD SUCCESSFUL.
 - [ ] **Step 13: Run the existing instrumented suite to prove nothing regressed**
 
 Run (emulator must be running): `./gradlew :app:connectedDebugAndroidTest`
-Expected: PASS — all 13 existing tests, same as before the move.
+Expected: PASS — all 14 existing tests, same as before the move.
 
 - [ ] **Step 14: Format and verify style**
 
@@ -393,7 +393,6 @@ class FakeBikeProfileRepository(
     initial: List<BikeProfile> = emptyList(),
 ) : BikeProfileRepository {
     private val profilesFlow = MutableStateFlow(initial)
-    private var nextId = (initial.maxOfOrNull { it.id } ?: 0L) + 1L
 
     private val _deletedIds = mutableListOf<Long>()
     val deletedIds: List<Long> get() = _deletedIds
@@ -406,7 +405,11 @@ class FakeBikeProfileRepository(
 
     override suspend fun upsert(profile: BikeProfile): Result<Long, DataError.Local> {
         upsertResult?.let { return it }
-        val id = if (profile.id == 0L) nextId++ else profile.id
+        // Derive the next id from current state, not a constructor-time counter:
+        // `emitProfiles` replaces the stored list wholesale, and a stale counter
+        // would re-assign an id that a seeded profile already holds, silently
+        // overwriting it instead of inserting.
+        val id = if (profile.id == 0L) (profilesFlow.value.maxOfOrNull { it.id } ?: 0L) + 1L else profile.id
         val stored = profile.copy(id = id)
         profilesFlow.value =
             profilesFlow.value
@@ -631,7 +634,6 @@ class FakeRideHistoryRepository(
     initial: List<RideRecord> = emptyList(),
 ) : RideHistoryRepository {
     private val ridesFlow = MutableStateFlow(initial)
-    private var nextId = (initial.maxOfOrNull { it.id } ?: 0L) + 1L
 
     /** When non-null, overrides the stored lookup — use for the not-found path. */
     var getByIdResult: Result<RideRecord, DataError.Local>? = null
@@ -649,7 +651,11 @@ class FakeRideHistoryRepository(
 
     override suspend fun save(ride: RideRecord): Result<Long, DataError.Local> {
         saveResult?.let { return it }
-        val id = if (ride.id == 0L) nextId++ else ride.id
+        // Derive the next id from current state, not a constructor-time counter:
+        // `emitRides` replaces the stored list wholesale, and a stale counter
+        // would re-assign an id a seeded ride already holds, silently
+        // overwriting it instead of inserting.
+        val id = if (ride.id == 0L) (ridesFlow.value.maxOfOrNull { it.id } ?: 0L) + 1L else ride.id
         ridesFlow.value =
             ridesFlow.value
                 .filterNot { it.id == id }
@@ -915,10 +921,9 @@ git commit -m "test: move history fakes and ride data builders into :core:testin
 **Interfaces:**
 - Consumes: nothing from earlier tasks.
 - Produces:
-  - `class FakeRideSensorDataSource : RideSensorDataSource` with `fun emit(sample: RideSensorSample)`, `var startResult: EmptyResult<SensorError>`, `val started: Boolean`
-  - `class FakeBleSensorDataSource : BleSensorDataSource` with `fun emit(sample: BleSample)`, `val connectedHrm: String?`, `val connectedCadence: String?`, `val isConnected: Boolean`
+  - `class FakeRideSensorDataSource : RideSensorDataSource` and `class FakeBleSensorDataSource : BleSensorDataSource` — moved verbatim from `:app/androidTest` with only their package declaration changed. Their public members are whatever the existing files already expose; do not add to them. Fourteen instrumented tests depend on their exact buffering and replay behaviour.
   - `class FakePlaceSearchService : PlaceSearchService` with `var result: Result<List<PlaceResult>, PlaceSearchError>`, `val queries: List<String>`
-  - `class FakeRoutingService : RoutingService` with `var result: Result<PlannedRoute, RoutingError>`, `val callCount: Int`
+  - `class FakeRoutingService : RoutingService` with `var result: Result<PlannedRoute, RoutingError>`, `val callCount: Int`, `val lastRequest: RouteRequest?`, plus `data class RouteRequest(originLatitude, originLongitude, destinationLatitude, destinationLongitude)`
   - `class FakeCurrentLocationProvider : CurrentLocationProvider` with `var result: Result<LocationFix, LocationError>`
 
 ---
@@ -990,10 +995,26 @@ import com.speedevand.inkride.core.domain.tracking.RoutingError
 import com.speedevand.inkride.core.domain.tracking.RoutingService
 import com.speedevand.inkride.core.domain.tracking.PlannedRoute
 
+/** The coordinates one `route()` call was made with. */
+data class RouteRequest(
+    val originLatitude: Double,
+    val originLongitude: Double,
+    val destinationLatitude: Double,
+    val destinationLongitude: Double,
+)
+
 class FakeRoutingService(
     defaultRoute: PlannedRoute = TestRoutes.straightLine(),
 ) : RoutingService {
     var callCount: Int = 0
+        private set
+
+    /**
+     * The arguments of the most recent call, so a test can assert the origin is
+     * the rider's current position and the destination the selected place —
+     * a call count alone would not catch the two being transposed.
+     */
+    var lastRequest: RouteRequest? = null
         private set
 
     var result: Result<PlannedRoute, RoutingError> = Result.Success(defaultRoute)
@@ -1005,6 +1026,7 @@ class FakeRoutingService(
         destinationLongitude: Double,
     ): Result<PlannedRoute, RoutingError> {
         callCount++
+        lastRequest = RouteRequest(originLatitude, originLongitude, destinationLatitude, destinationLongitude)
         return result
     }
 }
@@ -1056,7 +1078,7 @@ Expected: PASS, same test count as before.
 - [ ] **Step 6: Run the full instrumented suite**
 
 Run (emulator running): `./gradlew :app:connectedDebugAndroidTest`
-Expected: PASS — all 13 tests. This is the gate proving the sensor fakes survived the move intact.
+Expected: PASS — all 14 tests. This is the gate proving the sensor fakes survived the move intact.
 
 - [ ] **Step 7: Format, verify style, commit**
 
@@ -1279,7 +1301,7 @@ git commit -m "ci: raise instrumented job timeout and parallelize for multi-modu
 ## Done when
 
 - `./gradlew testDebugUnitTest` is green, with no test lost during fake consolidation.
-- `./gradlew :app:connectedDebugAndroidTest` is green — all 13 pre-existing tests.
+- `./gradlew :app:connectedDebugAndroidTest` is green — all 14 pre-existing tests.
 - `./gradlew :feature:settings:presentation:connectedDebugAndroidTest` is green — the smoke test.
 - `./gradlew ktlintCheck` is green.
 - `FakeUserSettingsRepository` exists exactly once in the repository.

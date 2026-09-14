@@ -820,7 +820,7 @@ Expected: PASS across all modules.
 - [ ] **Step 2: Run every instrumented test**
 
 Run (emulator running): `./gradlew connectedDebugAndroidTest --parallel`
-Expected: PASS across `:app`, `:core:database`, and the four `:feature:*:presentation` modules — roughly 108 tests in total (13 pre-existing plus about 95 new).
+Expected: PASS across `:app`, `:core:database`, and the four `:feature:*:presentation` modules — roughly 109 tests in total (14 pre-existing plus about 95 new).
 
 - [ ] **Step 3: Run the instrumented suite a second time**
 
