@@ -453,6 +453,9 @@ class RideLapDaoTest : DatabaseTestBase() {
         runTest {
             val rideId = db.rideHistoryDao().insert(TestEntities.ride())
             dao.insertAll(listOf(TestEntities.lap(rideId, 1), TestEntities.lap(rideId, 2)))
+            // Prove the rows are there first: without this the test passes
+            // unchanged against a getForRide that always returns empty.
+            assertThat(dao.getForRide(rideId)).hasSize(2)
 
             db.rideHistoryDao().deleteById(rideId)
 
@@ -464,6 +467,7 @@ class RideLapDaoTest : DatabaseTestBase() {
         runTest {
             val rideId = db.rideHistoryDao().insert(TestEntities.ride())
             dao.insertAll(listOf(TestEntities.lap(rideId, 1)))
+            assertThat(dao.getForRide(rideId)).hasSize(1)
 
             db.rideHistoryDao().deleteAll()
 
@@ -564,8 +568,21 @@ class RideTrackPointDaoTest : DatabaseTestBase() {
         runTest {
             val rideId = db.rideHistoryDao().insert(TestEntities.ride())
             dao.insertAll(listOf(TestEntities.trackPoint(rideId, TestEntities.START_MS)))
+            assertThat(dao.getForRide(rideId)).hasSize(1)
 
             db.rideHistoryDao().deleteById(rideId)
+
+            assertThat(dao.getForRide(rideId)).isEmpty()
+        }
+
+    @Test
+    fun deletingEveryRideCascadesToEveryTrackPoint() =
+        runTest {
+            val rideId = db.rideHistoryDao().insert(TestEntities.ride())
+            dao.insertAll(listOf(TestEntities.trackPoint(rideId, TestEntities.START_MS)))
+            assertThat(dao.getForRide(rideId)).hasSize(1)
+
+            db.rideHistoryDao().deleteAll()
 
             assertThat(dao.getForRide(rideId)).isEmpty()
         }
@@ -575,7 +592,7 @@ class RideTrackPointDaoTest : DatabaseTestBase() {
 - [ ] **Step 3: Run both classes**
 
 Run: `./gradlew :core:database:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.speedevand.inkride.core.database.RideLapDaoTest,com.speedevand.inkride.core.database.RideTrackPointDaoTest`
-Expected: PASS, 9 tests.
+Expected: PASS, 10 tests.
 
 If a cascade test fails, do not add `PRAGMA foreign_keys` to the test setup — that would hide the finding. Room enables foreign keys for databases it opens, so a failure means production deletes are leaving orphan rows behind, which is a bug to report.
 
