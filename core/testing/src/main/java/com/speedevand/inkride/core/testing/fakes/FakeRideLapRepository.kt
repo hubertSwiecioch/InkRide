@@ -14,6 +14,12 @@ class FakeRideLapRepository : RideLapRepository {
     /** When non-null, overrides the stored lookup for every ride id. */
     var getResult: Result<List<LapRecord>, DataError.Local>? = null
 
+    /**
+     * Differs from production: [RoomRideLapRepository.saveLaps][com.speedevand.inkride.history.data.RoomRideLapRepository.saveLaps]
+     * inserts with `id = 0`, so Room *appends* a second call's laps to the first. This fake
+     * *replaces* the stored list for `rideId`. A test asserting cumulative laps across two
+     * `saveLaps` calls would pass here and fail against Room.
+     */
     override suspend fun saveLaps(
         rideId: Long,
         laps: List<LapRecord>,
@@ -32,5 +38,15 @@ class FakeRideLapRepository : RideLapRepository {
         laps: List<LapRecord>,
     ) {
         stored[rideId] = laps
+    }
+
+    /** Clears the laps stored for one ride. Used by [FakeRideHistoryRepository] to model the FK cascade on delete. */
+    fun clearFor(rideId: Long) {
+        stored.remove(rideId)
+    }
+
+    /** Clears every ride's laps. Used by [FakeRideHistoryRepository] to model the FK cascade on delete-all. */
+    fun clearAll() {
+        stored.clear()
     }
 }

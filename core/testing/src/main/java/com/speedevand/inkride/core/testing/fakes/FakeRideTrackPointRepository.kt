@@ -12,6 +12,12 @@ class FakeRideTrackPointRepository : RideTrackPointRepository {
     var saveResult: EmptyResult<DataError.Local> = Result.Success(Unit)
     var getResult: Result<List<RideTrackPoint>, DataError.Local>? = null
 
+    /**
+     * Differs from production: `RoomRideTrackPointRepository.savePoints` inserts with `id = 0`,
+     * so Room *appends* a second call's points to the first. This fake *replaces* the stored
+     * list for `rideId`. A test asserting cumulative points across two `savePoints` calls would
+     * pass here and fail against Room.
+     */
     override suspend fun savePoints(
         rideId: Long,
         points: List<RideTrackPoint>,
@@ -30,5 +36,15 @@ class FakeRideTrackPointRepository : RideTrackPointRepository {
         points: List<RideTrackPoint>,
     ) {
         stored[rideId] = points
+    }
+
+    /** Clears the points stored for one ride. Used by [FakeRideHistoryRepository] to model the FK cascade on delete. */
+    fun clearFor(rideId: Long) {
+        stored.remove(rideId)
+    }
+
+    /** Clears every ride's points. Used by [FakeRideHistoryRepository] to model the FK cascade on delete-all. */
+    fun clearAll() {
+        stored.clear()
     }
 }

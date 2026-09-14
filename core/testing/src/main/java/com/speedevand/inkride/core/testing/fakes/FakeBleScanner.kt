@@ -18,12 +18,15 @@ class FakeBleScanner : BleScanner {
     /** Set to a `Result.Error` to drive the adapter-off / permission-denied path. */
     var availability: EmptyResult<BleScanError> = Result.Success(Unit)
 
+    @Volatile
     var scanCount: Int = 0
         private set
 
+    @Volatile
     var stoppedScans: Int = 0
         private set
 
+    @Volatile
     var lastScannedType: BleSensorType? = null
         private set
 
@@ -37,7 +40,12 @@ class FakeBleScanner : BleScanner {
                 lastScannedType = type
             }.onCompletion { stoppedScans++ }
 
-    /** Emits a discovered device to whichever scan is currently collecting. */
+    /**
+     * Emits a discovered device to whichever scan is currently collecting. The underlying flow
+     * has `replay = 0`, so a device emitted before a `scan()` collector is attached is dropped —
+     * this mirrors "a device is only discovered while scanning" and is intentional. Callers must
+     * start collecting `scan()` before calling this.
+     */
     suspend fun emitDevice(device: BleDevice) {
         devices.emit(device)
     }

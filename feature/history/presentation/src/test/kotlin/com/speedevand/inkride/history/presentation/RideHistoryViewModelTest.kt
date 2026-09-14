@@ -27,10 +27,10 @@ import org.junit.jupiter.api.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class RideHistoryViewModelTest {
     private val testDispatcher = UnconfinedTestDispatcher()
-    private val rideRepo = FakeRideHistoryRepository()
     private val settingsRepo = FakeUserSettingsRepository()
     private val trackPointRepo = FakeRideTrackPointRepository()
     private val lapRepo = FakeRideLapRepository()
+    private val rideRepo = FakeRideHistoryRepository(lapRepository = lapRepo, trackPointRepository = trackPointRepo)
 
     @BeforeEach
     fun setUp() {
@@ -183,11 +183,11 @@ class RideHistoryViewModelTest {
             val viewModel = viewModel()
 
             viewModel.onAction(RideHistoryAction.OnDeleteRide(1L))
-            // A real cascade delete would also wipe these; the fake doesn't
-            // cascade, so simulate it explicitly to prove restore happens
-            // from the *cached* copy, not a re-read after delete.
-            trackPointRepo.setPoints(1L, emptyList())
-            lapRepo.setLaps(1L, emptyList())
+            // rideRepo is wired to lapRepo/trackPointRepo, so deleting the ride above already
+            // cascaded and cleared these — proving restore happens from the ViewModel's cached
+            // copy, not a re-read of the (now-empty) repositories.
+            assertThat(trackPointRepo.getPoints(1L)).isEqualTo(Result.Success(emptyList()))
+            assertThat(lapRepo.getLaps(1L)).isEqualTo(Result.Success(emptyList()))
 
             viewModel.onAction(RideHistoryAction.OnUndoDelete)
 

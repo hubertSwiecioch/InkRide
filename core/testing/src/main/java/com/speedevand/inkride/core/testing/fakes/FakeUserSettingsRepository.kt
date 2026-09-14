@@ -8,6 +8,13 @@ import com.speedevand.inkride.core.domain.settings.UserSettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 
+/**
+ * Differs from production: `RoomUserSettingsRepository.observeSettings` combines settings with
+ * bike profiles and, when `activeBikeProfileId` is set, replaces `bikeWeightKg`/`bikeType` with
+ * that profile's values. This fake echoes back whatever [UserSettings] was saved or emitted —
+ * the active-profile resolution is not modelled, so a test relying on it must set
+ * `bikeWeightKg`/`bikeType` on the seeded/saved `UserSettings` itself.
+ */
 class FakeUserSettingsRepository(
     initial: UserSettings = UserSettings(weightKg = 75, age = 30),
 ) : UserSettingsRepository {

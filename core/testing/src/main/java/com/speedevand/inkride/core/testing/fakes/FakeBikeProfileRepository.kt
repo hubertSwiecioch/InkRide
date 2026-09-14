@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 class FakeBikeProfileRepository(
     initial: List<BikeProfile> = emptyList(),
 ) : BikeProfileRepository {
-    private val profilesFlow = MutableStateFlow(initial)
+    private val profilesFlow = MutableStateFlow(initial.sortedBy { it.id })
 
     private val _deletedIds = mutableListOf<Long>()
     val deletedIds: List<Long> get() = _deletedIds
@@ -22,6 +22,12 @@ class FakeBikeProfileRepository(
 
     override fun observeProfiles(): Flow<List<BikeProfile>> = profilesFlow
 
+    /**
+     * Assigns a new id as `max(id) + 1`. Every schema-7 table is
+     * `INTEGER PRIMARY KEY AUTOINCREMENT`, so SQLite never reuses an id even after a delete;
+     * this fake can, once the highest-id row is removed. A test that deletes a profile and then
+     * asserts on a *specific* newly-assigned id may see a value Room would never produce.
+     */
     override suspend fun upsert(profile: BikeProfile): Result<Long, DataError.Local> {
         upsertResult?.let { return it }
         // Derive the next id from current state, not a constructor-time counter:
@@ -46,7 +52,8 @@ class FakeBikeProfileRepository(
         return deleteResult
     }
 
+    /** Replaces the stored profiles, sorted to match `BikeProfileDao.observeAll`'s `ORDER BY id ASC`. */
     fun emitProfiles(profiles: List<BikeProfile>) {
-        profilesFlow.value = profiles
+        profilesFlow.value = profiles.sortedBy { it.id }
     }
 }
