@@ -41,6 +41,7 @@ class DashboardViewModel(
             DashboardAction.OnStopClick -> rideTracker.stop()
             DashboardAction.OnResetClick -> rideTracker.stop()
             DashboardAction.OnOpenSettingsClick -> Unit
+            DashboardAction.OnSearchDestinationClick -> Unit
             DashboardAction.OnRecordLapClick -> rideTracker.recordLap()
             is DashboardAction.OnSetGoal -> rideTracker.setGoal(action.goal)
             DashboardAction.OnClearGoal -> rideTracker.clearGoal()

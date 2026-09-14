@@ -1,5 +1,6 @@
 package com.speedevand.inkride.ble.data
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCharacteristic
@@ -7,6 +8,9 @@ import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
 import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.core.content.ContextCompat
 import com.speedevand.inkride.core.domain.ble.BleSample
 import com.speedevand.inkride.core.domain.ble.BleSensorDataSource
 import kotlinx.coroutines.flow.Flow
@@ -15,9 +19,12 @@ import java.util.concurrent.ConcurrentHashMap
 
 /**
  * GATT client that keeps live connections to the paired HRM/cadence sensors and
- * folds their notifications into a single [BleSample] flow. Permissions
- * (BLUETOOTH_CONNECT on 12+) are requested by the UI before a ride; calls here
- * are annotated [SuppressLint] accordingly and fail soft if the adapter is off.
+ * folds their notifications into a single [BleSample] flow. The UI requests
+ * BLUETOOTH_CONNECT (12+) before pairing, but [connect] can also be driven
+ * later by RideTracker's background settings collector with an
+ * already-paired address and no UI in between, so it re-checks the
+ * permission itself and fails soft (like an adapter that's off) rather than
+ * relying solely on that earlier request.
  */
 @SuppressLint("MissingPermission")
 class AndroidBleSensorDataSource(
@@ -80,6 +87,7 @@ class AndroidBleSensorDataSource(
 
         val adapter = bluetoothManager?.adapter ?: return
         if (!adapter.isEnabled) return
+        if (!hasConnectPermission()) return
 
         connectedAddresses = desired
         desired.forEach { address ->
@@ -238,5 +246,14 @@ class AndroidBleSensorDataSource(
         }
         descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
         gatt.writeDescriptor(descriptor)
+    }
+
+    private fun hasConnectPermission(): Boolean {
+        // BLUETOOTH_CONNECT is a runtime permission only on Android 12+.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return true
+        return ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.BLUETOOTH_CONNECT,
+        ) == PackageManager.PERMISSION_GRANTED
     }
 }

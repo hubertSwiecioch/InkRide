@@ -8,6 +8,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navigation
 import com.speedevand.inkride.core.domain.navigation.DashboardGraph
 import com.speedevand.inkride.core.domain.navigation.DashboardRoute
+import com.speedevand.inkride.core.domain.navigation.DestinationSearchRoute
 import com.speedevand.inkride.core.domain.navigation.SettingsRoute
 
 fun NavGraphBuilder.dashboardGraph(
@@ -20,6 +21,9 @@ fun NavGraphBuilder.dashboardGraph(
             DashboardRoot(
                 onOpenSettings = {
                     navController.navigate(SettingsRoute)
+                },
+                onSearchDestination = {
+                    navController.navigate(DestinationSearchRoute)
                 },
                 onStartService = {
                     val intent =
@@ -36,6 +40,9 @@ fun NavGraphBuilder.dashboardGraph(
                     context.startService(intent)
                 },
             )
+        }
+        composable<DestinationSearchRoute> {
+            DestinationSearchRoot(onNavigateBack = { navController.popBackStack() })
         }
     }
 }

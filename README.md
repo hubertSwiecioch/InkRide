@@ -42,7 +42,7 @@ To ensure a consistent and distraction-free experience, InkRide adopts the **Mud
 - **Weather Trend:** Barometric pressure trend (rising/falling/stable) shown as a static, E-Ink-friendly indicator — no internet required.
 - **Bike Profiles & Alerts:** Multiple bike profiles (weight, type) and configurable speed/heart-rate alerts with vibration feedback.
 - **E-Ink Friendly UI:** Tailored components from Mudita Mindful Design, with discrete state updates and no fluid animations.
-- **Privacy First:** No Firebase, no Google Analytics, no GMS required; all data stored locally via Room. Map tiles are the only network traffic, fetched on demand from OpenStreetMap.
+- **Privacy First:** No Firebase, no Google Analytics, no GMS required; all data stored locally via Room. Network traffic is limited to on-demand OpenStreetMap-ecosystem requests: map tiles, destination-search queries sent to Nominatim, and bike-route requests (which include your current GPS coordinates and chosen destination) sent to an OSRM bike-profile server.
 - **Hardware Optimized:** Minimal CPU usage to maximize battery life on E-Ink devices.
 
 ## 🛠 Tech Stack
@@ -55,7 +55,8 @@ To ensure a consistent and distraction-free experience, InkRide adopts the **Mud
 - **Navigation:** Type-safe Compose Navigation
 - **Location:** Android `LocationManager` with `GPS_PROVIDER` (FOSS-friendly, no GMS)
 - **Connectivity:** Standard `BluetoothLeScanner`/GATT for heart-rate and cadence sensors (no GMS)
-- **Maps:** OsmDroid with OpenStreetMap tiles (FOSS, the app's only network usage)
+- **Maps:** OsmDroid with OpenStreetMap tiles (FOSS)
+- **Destination Search & Routing:** Nominatim (nominatim.openstreetmap.org) for place search and a FOSSGIS OSRM bike-profile deployment (routing.openstreetmap.de/routed-bike) for routing — both public, keyless OpenStreetMap-ecosystem services; a search/route request sends your typed query and/or current GPS coordinates to them
 
 ## 🏗 Project Structure
 

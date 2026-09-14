@@ -22,6 +22,8 @@ object DashboardTestTags {
     const val GOAL_BUTTON = "dashboard_goal_button"
     const val GOAL_VALUE_FIELD = "dashboard_goal_value_field"
     const val GOAL_SET_BUTTON = "dashboard_goal_set_button"
+    const val ROUTE_NEXT_TURN_ICON = "dashboard_route_next_turn_icon"
+    const val ROUTE_NEXT_TURN_TEXT = "dashboard_route_next_turn_text"
 
     const val METRIC_DISTANCE = "dashboard_metric_value_distance"
     const val METRIC_MOVING_TIME = "dashboard_metric_value_moving_time"

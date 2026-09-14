@@ -39,6 +39,25 @@ fun ComposeTestRule.waitUntilTagText(
     }
 }
 
+/** The content description of a single tagged node (e.g. an `Icon` carrying a `testTag`). */
+fun SemanticsNodeInteraction.contentDescription(): String =
+    fetchSemanticsNode()
+        .config[SemanticsProperties.ContentDescription]
+        .joinToString(separator = "") { it }
+
+fun ComposeTestRule.contentDescriptionOf(tag: String): String = onNodeWithTag(tag).assertIsDisplayed().contentDescription()
+
+/** Same real-clock polling as [waitUntilTagText], against a tagged node's content description. */
+fun ComposeTestRule.waitUntilTagContentDescription(
+    tag: String,
+    timeoutMillis: Long = 15_000L,
+    predicate: (String) -> Boolean,
+) {
+    waitUntil(timeoutMillis) {
+        runCatching { predicate(contentDescriptionOf(tag)) }.getOrDefault(false)
+    }
+}
+
 fun ComposeTestRule.swipeMetricsPagerToNextPage() {
     onNodeWithTag(DashboardTestTags.METRICS_PAGER).performTouchInput { swipeUp() }
     waitForIdle()

@@ -47,6 +47,13 @@ data class TrackingState(
     // when nothing is paired and when a paired sensor has dropped — Task 7's UI
     // combines this with the paired-address settings to tell the two apart.
     val bleSensorConnected: Boolean = false,
+    // The rider's latest known position while status != IDLE, carried forward
+    // on a fix-less sample (same treatment as [routeProgress]) and cleared on
+    // [stop]. Lets a caller that needs "where is the rider right now" (e.g.
+    // destination search's current-location lookup) reuse this live,
+    // Kalman-filtered position instead of requesting a second, redundant GPS
+    // fix while a ride is already active.
+    val currentPosition: LocationFix? = null,
 )
 
 /**
@@ -410,7 +417,13 @@ class RideTracker(
                                         heartRateBpm = current.metrics.heartRateBpm,
                                         cadenceRpm = cadenceOrZeroIfStale(current.metrics.cadenceRpm, sample.timestampMs),
                                     )
-                                current.copy(status = resolved, metrics = metrics, routeProgress = progress)
+                                val position =
+                                    if (sample.latitude != null && sample.longitude != null) {
+                                        LocationFix(sample.latitude, sample.longitude)
+                                    } else {
+                                        current.currentPosition
+                                    }
+                                current.copy(status = resolved, metrics = metrics, routeProgress = progress, currentPosition = position)
                             }
                         recordTrackPoint(newState.status, sample, newState.metrics)
                         evaluateAlerts(newState.status, newState.metrics)
