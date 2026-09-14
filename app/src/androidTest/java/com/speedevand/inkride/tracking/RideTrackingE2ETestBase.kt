@@ -16,9 +16,9 @@ import com.speedevand.inkride.core.domain.settings.UserSettings
 import com.speedevand.inkride.core.domain.settings.UserSettingsRepository
 import com.speedevand.inkride.core.domain.tracking.RideSensorDataSource
 import com.speedevand.inkride.core.domain.tracking.RideTracker
+import com.speedevand.inkride.core.testing.fakes.FakeBleSensorDataSource
+import com.speedevand.inkride.core.testing.fakes.FakeRideSensorDataSource
 import com.speedevand.inkride.dashboard.presentation.DashboardTestTags
-import com.speedevand.inkride.tracking.fakes.FakeBleSensorDataSource
-import com.speedevand.inkride.tracking.fakes.FakeRideSensorDataSource
 import com.speedevand.inkride.tracking.service.TrackingService
 import com.speedevand.inkride.tracking.support.RideSamples
 import kotlinx.coroutines.runBlocking

@@ -1,4 +1,4 @@
-package com.speedevand.inkride.tracking.fakes
+package com.speedevand.inkride.core.testing.fakes
 
 import com.speedevand.inkride.core.domain.ble.BleSample
 import com.speedevand.inkride.core.domain.ble.BleSensorDataSource

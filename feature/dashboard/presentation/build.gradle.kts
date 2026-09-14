@@ -15,4 +15,6 @@ dependencies {
     implementation(libs.mudita.mmd)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.androidx.compose.ui)
+
+    testImplementation(project(":core:testing"))
 }
