@@ -206,8 +206,13 @@ delete, `deleteAll`, lifetime-stats aggregation, empty database); `RideLapDao`
 and `RideTrackPointDao` (bulk insert, read back per ride, **cascade delete**,
 ordering); `BikeProfileDao` (upsert as insert and as update, observe, delete);
 `UserSettingsDao` (singleton upsert, observe emits after a write); and a
-`MigrationTest` built on `MigrationTestHelper` running every schema version
-through `validateMigration`.
+`MigrationTest` built on `MigrationTestHelper`.
+
+`exportSchema` was only switched on at version 6, so `core/database/schemas/`
+holds just `6.json` and `7.json`. `MigrationTestHelper` needs a snapshot of the
+*starting* version, so the instrumented migration test can validate 6 → 7 only.
+Migrations 4 → 5 and 5 → 6 stay in the existing Robolectric `MigrationTest`,
+which hand-builds the starting schema instead.
 
 The existing Robolectric tests in `src/test` stay — they are faster and run in
 CI without an emulator. The instrumented versions add what Robolectric
