@@ -435,7 +435,7 @@ Confirm `RideHistoryRoot`'s parameter names against `RideHistoryScreen.kt`, and 
 
 - [ ] **Step 4: Run the class**
 
-Run: `./gradlew :feature:history:presentation:connectedDebugAndroidTest --tests "*RideHistoryScreenTest"`
+Run: `./gradlew :feature:history:presentation:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.speedevand.inkride.history.presentation.RideHistoryScreenTest`
 Expected: PASS, 10 tests.
 
 If `undoingADeleteRestoresTheRide…` is flaky, the undo snackbar is auto-dismissing before the click. Take manual control of the clock in that test: set `composeTestRule.mainClock.autoAdvance = false` before the delete click, drive the composition with `composeTestRule.mainClock.advanceTimeBy(…)` until the snackbar appears, click undo, then restore `autoAdvance = true`.
@@ -676,7 +676,7 @@ class RideDetailScreenTest : HistoryTestHarness() {
 
 - [ ] **Step 4: Run the class**
 
-Run: `./gradlew :feature:history:presentation:connectedDebugAndroidTest --tests "*RideDetailScreenTest"`
+Run: `./gradlew :feature:history:presentation:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.speedevand.inkride.history.presentation.RideDetailScreenTest`
 Expected: PASS, 10 tests.
 
 - [ ] **Step 5: Format, verify style, commit**
@@ -810,7 +810,7 @@ Remove the `allOf`, `hasType` and `isEmpty` imports if the final assertions do n
 
 - [ ] **Step 3: Run the class**
 
-Run: `./gradlew :feature:history:presentation:connectedDebugAndroidTest --tests "*RideDetailGpxExportTest"`
+Run: `./gradlew :feature:history:presentation:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.speedevand.inkride.history.presentation.RideDetailGpxExportTest`
 Expected: PASS, 3 tests.
 
 - [ ] **Step 4: Format, verify style, commit**
@@ -984,7 +984,7 @@ To confirm these tests actually guard the fix, temporarily revert one `rememberS
 
 - [ ] **Step 3: Run both classes**
 
-Run: `./gradlew :feature:history:presentation:connectedDebugAndroidTest --tests "*RideDetailRouteMapTest" --tests "*HistoryRotationTest"`
+Run: `./gradlew :feature:history:presentation:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.speedevand.inkride.history.presentation.RideDetailRouteMapTest,com.speedevand.inkride.history.presentation.HistoryRotationTest`
 Expected: PASS, 5 tests.
 
 - [ ] **Step 4: Format, verify style, commit**

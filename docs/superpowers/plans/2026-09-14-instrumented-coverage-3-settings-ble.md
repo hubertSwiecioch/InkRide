@@ -417,7 +417,7 @@ Open `SettingsConstants.kt` before running and confirm `WEIGHT_MAX_KG` and `AGE_
 
 - [ ] **Step 3: Run the class**
 
-Run: `./gradlew :feature:settings:presentation:connectedDebugAndroidTest --tests "*SettingsScreenProfileTest"`
+Run: `./gradlew :feature:settings:presentation:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.speedevand.inkride.settings.presentation.SettingsScreenProfileTest`
 Expected: PASS, 11 tests.
 
 - [ ] **Step 4: Delete the superseded smoke test**
@@ -642,7 +642,7 @@ Add the imports `androidx.compose.ui.test.assertCountEquals`, `androidx.compose.
 
 - [ ] **Step 3: Run both classes**
 
-Run: `./gradlew :feature:settings:presentation:connectedDebugAndroidTest --tests "*SettingsScreenDisplayTest" --tests "*SettingsScreenAlertsTest"`
+Run: `./gradlew :feature:settings:presentation:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.speedevand.inkride.settings.presentation.SettingsScreenDisplayTest,com.speedevand.inkride.settings.presentation.SettingsScreenAlertsTest`
 Expected: PASS, 10 tests.
 
 - [ ] **Step 4: Format, verify style, commit**
@@ -938,7 +938,7 @@ Add the import `androidx.compose.ui.test.onAllNodesWithText`. If `BikeProfilesRo
 
 - [ ] **Step 4: Run the class**
 
-Run: `./gradlew :feature:settings:presentation:connectedDebugAndroidTest --tests "*BikeProfilesScreenTest"`
+Run: `./gradlew :feature:settings:presentation:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.speedevand.inkride.settings.presentation.BikeProfilesScreenTest`
 Expected: PASS, 12 tests.
 
 - [ ] **Step 5: Run the whole module and its unit tests**

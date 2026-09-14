@@ -374,7 +374,7 @@ class RideHistoryDaoTest : DatabaseTestBase() {
 
 - [ ] **Step 2: Run them**
 
-Run (emulator running): `./gradlew :core:database:connectedDebugAndroidTest --tests "*RideHistoryDaoTest"`
+Run (emulator running): `./gradlew :core:database:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.speedevand.inkride.core.database.RideHistoryDaoTest`
 Expected: PASS, 8 tests. These exercise existing production code, so they should pass on first run; a failure here is a real defect, not a missing feature — investigate it rather than adjusting the assertion.
 
 - [ ] **Step 3: Format, verify style, commit**
@@ -574,7 +574,7 @@ class RideTrackPointDaoTest : DatabaseTestBase() {
 
 - [ ] **Step 3: Run both classes**
 
-Run: `./gradlew :core:database:connectedDebugAndroidTest --tests "*RideLapDaoTest" --tests "*RideTrackPointDaoTest"`
+Run: `./gradlew :core:database:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.speedevand.inkride.core.database.RideLapDaoTest,com.speedevand.inkride.core.database.RideTrackPointDaoTest`
 Expected: PASS, 9 tests.
 
 If a cascade test fails, do not add `PRAGMA foreign_keys` to the test setup — that would hide the finding. Room enables foreign keys for databases it opens, so a failure means production deletes are leaving orphan rows behind, which is a bug to report.
@@ -786,7 +786,7 @@ class UserSettingsDaoTest : DatabaseTestBase() {
 
 - [ ] **Step 3: Run both classes**
 
-Run: `./gradlew :core:database:connectedDebugAndroidTest --tests "*BikeProfileDaoTest" --tests "*UserSettingsDaoTest"`
+Run: `./gradlew :core:database:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.speedevand.inkride.core.database.BikeProfileDaoTest,com.speedevand.inkride.core.database.UserSettingsDaoTest`
 Expected: PASS, 9 tests.
 
 - [ ] **Step 4: Format, verify style, commit**
@@ -921,7 +921,7 @@ overloads you used. If the current API returns an `SQLiteConnection` rather than
 
 - [ ] **Step 3: Run it**
 
-Run: `./gradlew :core:database:connectedDebugAndroidTest --tests "*AppDatabaseMigrationTest"`
+Run: `./gradlew :core:database:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.speedevand.inkride.core.database.AppDatabaseMigrationTest`
 Expected: PASS, 2 tests.
 
 A failure of the form "Migration didn't properly handle …" means the migration SQL and the version-7 schema disagree — read the diff the helper prints; it names the table and column.

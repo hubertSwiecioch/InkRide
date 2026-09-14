@@ -456,7 +456,7 @@ Add the import `androidx.compose.ui.test.onAllNodesWithContentDescription`.
 
 - [ ] **Step 2: Run the class**
 
-Run: `./gradlew :app:connectedDebugAndroidTest --tests "*AppNavigationE2ETest"`
+Run: `./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.speedevand.inkride.navigation.AppNavigationE2ETest`
 Expected: PASS, 4 tests.
 
 - [ ] **Step 3: Format, verify style, commit**
@@ -599,7 +599,7 @@ Add to the test class:
 
 - [ ] **Step 3: Run the class**
 
-Run: `./gradlew :app:connectedDebugAndroidTest --tests "*RideToHistoryE2ETest"`
+Run: `./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.speedevand.inkride.history.RideToHistoryE2ETest`
 Expected: PASS, 1 test.
 
 - [ ] **Step 4: Format, verify style, commit**
@@ -788,7 +788,7 @@ Add the imports `androidx.compose.ui.test.onAllNodesWithTag`, `assertk.assertTha
 
 - [ ] **Step 3: Run both classes**
 
-Run: `./gradlew :app:connectedDebugAndroidTest --tests "*ProcessDeathE2ETest" --tests "*OnboardingProcessDeathE2ETest"`
+Run: `./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.speedevand.inkride.lifecycle.ProcessDeathE2ETest,com.speedevand.inkride.lifecycle.OnboardingProcessDeathE2ETest`
 Expected: PASS, 2 tests.
 
 - [ ] **Step 4: Format, verify style, commit**
