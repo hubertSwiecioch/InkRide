@@ -886,17 +886,38 @@ class AppDatabaseMigrationTest {
     }
 
     @Test
-    fun migrate6To7OpensAtTheCurrentSchemaVersion() {
+    fun migrate6To7SeedsADefaultSettingsRowWhenNoneExisted() {
         helper.createDatabase(TEST_DB, 6).close()
 
         val migrated = helper.runMigrationsAndValidate(TEST_DB, 7, true, MIGRATION_6_7)
 
-        assertThat(migrated.version).isEqualTo(7)
+        // MIGRATION_6_7's second statement is an INSERT OR IGNORE that seeds the
+        // singleton settings row, so a database that never had one comes out of
+        // the migration with defaults rather than empty.
+        migrated.query("SELECT weightKg, age, hasCompletedOnboarding FROM user_settings WHERE id = 1").use { cursor ->
+            assertThat(cursor.moveToFirst()).isTrue()
+            assertThat(cursor.getInt(0)).isEqualTo(75)
+            assertThat(cursor.getInt(1)).isEqualTo(30)
+            assertThat(cursor.getInt(2)).isEqualTo(1)
+        }
     }
 }
 ```
 
-The `INSERT` column list must match version 6's schema exactly. Before running, open `core/database/schemas/com.speedevand.inkride.core.database.AppDatabase/6.json` and check the `user_settings` field list — add or drop columns in the statement to match, and give every `NOT NULL` column a value.
+The `INSERT` column list above is the complete set of version 6's `NOT NULL` `user_settings`
+columns, verified against `6.json`: `id`, `weightKg`, `age`, `bikeWeightKg`, `bikeType`,
+`languageCode`, `units`, the ten `show*` flags, and `keepScreenOn`. The six nullable columns
+(`pairedHrmAddress`, `pairedCadenceAddress`, `maxSpeedAlertKmh`, `hrZoneMinBpm`, `hrZoneMaxBpm`,
+`activeBikeProfileId`) are deliberately omitted.
+
+**The `MigrationTestHelper` constructor shape is not settled by this plan.** Room 2.7 introduced a
+driver-based API alongside the older `SupportSQLiteOpenHelper.Factory` one, and which overloads are
+current versus deprecated in 2.8.4 could not be confirmed from documentation. Use whichever the
+compiler accepts **without emitting a deprecation warning** — warnings count as unclean output — and
+say in your report which constructor and which `createDatabase` / `runMigrationsAndValidate`
+overloads you used. If the current API returns an `SQLiteConnection` rather than a
+`SupportSQLiteDatabase`, the assertions become `prepare(...)`/`step()`/`getInt(...)` instead of
+`query(...)`/`moveToFirst()`/`getInt(...)`; adapt them and keep what they assert identical.
 
 - [ ] **Step 3: Run it**
 
