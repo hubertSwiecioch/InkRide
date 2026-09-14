@@ -16,4 +16,6 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.androidx.compose.ui)
     implementation(libs.osmdroid.android)
+
+    testImplementation(project(":core:testing"))
 }

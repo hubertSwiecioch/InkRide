@@ -5,21 +5,17 @@ import assertk.assertThat
 import assertk.assertions.isEqualTo
 import assertk.assertions.isInstanceOf
 import com.speedevand.inkride.core.domain.DataError
-import com.speedevand.inkride.core.domain.EmptyResult
 import com.speedevand.inkride.core.domain.Result
-import com.speedevand.inkride.core.domain.history.RideHistoryRepository
-import com.speedevand.inkride.core.domain.history.RideLapRepository
 import com.speedevand.inkride.core.domain.history.RideRecord
 import com.speedevand.inkride.core.domain.history.RideTrackPoint
-import com.speedevand.inkride.core.domain.history.RideTrackPointRepository
-import com.speedevand.inkride.core.domain.settings.UserSettings
-import com.speedevand.inkride.core.domain.settings.UserSettingsRepository
 import com.speedevand.inkride.core.domain.tracking.LapRecord
-import com.speedevand.inkride.core.presentation.toUiText
+import com.speedevand.inkride.core.testing.fakes.FakeRideHistoryRepository
+import com.speedevand.inkride.core.testing.fakes.FakeRideLapRepository
+import com.speedevand.inkride.core.testing.fakes.FakeRideTrackPointRepository
+import com.speedevand.inkride.core.testing.fakes.FakeUserSettingsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -33,8 +29,8 @@ class RideHistoryViewModelTest {
     private val testDispatcher = UnconfinedTestDispatcher()
     private val rideRepo = FakeRideHistoryRepository()
     private val settingsRepo = FakeUserSettingsRepository()
-    private val trackPointRepo = FakeTrackPointRepository()
-    private val lapRepo = FakeLapRepository()
+    private val trackPointRepo = FakeRideTrackPointRepository()
+    private val lapRepo = FakeRideLapRepository()
 
     @BeforeEach
     fun setUp() {
@@ -47,6 +43,8 @@ class RideHistoryViewModelTest {
     }
 
     private fun viewModel() = RideHistoryViewModel(rideRepo, settingsRepo, trackPointRepo, lapRepo)
+
+    private suspend fun currentRides(): List<RideRecord> = rideRepo.observeAll().first()
 
     @Test
     fun `initial state shows loading then becomes false after flow emits`() =
@@ -119,7 +117,7 @@ class RideHistoryViewModelTest {
                     elevationGainM = 50.0,
                     caloriesKcal = 200.0,
                 )
-            rideRepo.rides.add(ride)
+            rideRepo.emitRides(listOf(ride))
 
             val viewModel = viewModel()
 
@@ -146,17 +144,17 @@ class RideHistoryViewModelTest {
                     elevationGainM = 50.0,
                     caloriesKcal = 200.0,
                 )
-            rideRepo.rides.add(ride)
+            rideRepo.emitRides(listOf(ride))
 
             val viewModel = viewModel()
 
             // Delete the ride
             viewModel.onAction(RideHistoryAction.OnDeleteRide(1L))
-            assertThat(rideRepo.rides.size).isEqualTo(0)
+            assertThat(currentRides().size).isEqualTo(0)
 
             // Undo
             viewModel.onAction(RideHistoryAction.OnUndoDelete)
-            assertThat(rideRepo.rides.size).isEqualTo(1)
+            assertThat(currentRides().size).isEqualTo(1)
         }
 
     @Test
@@ -175,12 +173,12 @@ class RideHistoryViewModelTest {
                     elevationGainM = 50.0,
                     caloriesKcal = 200.0,
                 )
-            rideRepo.rides.add(ride)
+            rideRepo.emitRides(listOf(ride))
             val points = listOf(RideTrackPoint(timestampMs = 0L, latitude = 52.0, longitude = 21.0))
             val laps =
                 listOf(LapRecord(lapNumber = 1, distanceKm = 5.0, movingTimeSeconds = 300L, averageSpeedKmh = 20.0, elevationGainM = 10.0))
-            trackPointRepo.saved[1L] = points
-            lapRepo.saved[1L] = laps
+            trackPointRepo.setPoints(1L, points)
+            lapRepo.setLaps(1L, laps)
 
             val viewModel = viewModel()
 
@@ -188,21 +186,21 @@ class RideHistoryViewModelTest {
             // A real cascade delete would also wipe these; the fake doesn't
             // cascade, so simulate it explicitly to prove restore happens
             // from the *cached* copy, not a re-read after delete.
-            trackPointRepo.saved.remove(1L)
-            lapRepo.saved.remove(1L)
+            trackPointRepo.setPoints(1L, emptyList())
+            lapRepo.setLaps(1L, emptyList())
 
             viewModel.onAction(RideHistoryAction.OnUndoDelete)
 
-            val restoredRideId = rideRepo.rides.first().id
-            assertThat(trackPointRepo.saved[restoredRideId]).isEqualTo(points)
-            assertThat(lapRepo.saved[restoredRideId]).isEqualTo(laps)
+            val restoredRideId = currentRides().first().id
+            assertThat(trackPointRepo.getPoints(restoredRideId)).isEqualTo(Result.Success(points))
+            assertThat(lapRepo.getLaps(restoredRideId)).isEqualTo(Result.Success(laps))
         }
 
     @Test
     fun `delete all clears all rides`() =
         runTest {
-            repeat(3) { i ->
-                rideRepo.rides.add(
+            val rides =
+                (0 until 3).map { i ->
                     RideRecord(
                         id = i.toLong(),
                         startTimestamp = 0L,
@@ -214,13 +212,13 @@ class RideHistoryViewModelTest {
                         maxSpeedKmh = 30.0,
                         elevationGainM = 50.0,
                         caloriesKcal = 200.0,
-                    ),
-                )
-            }
+                    )
+                }
+            rideRepo.emitRides(rides)
 
             val viewModel = viewModel()
             viewModel.onAction(RideHistoryAction.OnDeleteAll)
-            assertThat(rideRepo.rides.size).isEqualTo(0)
+            assertThat(currentRides().size).isEqualTo(0)
         }
 
     @Test
@@ -239,8 +237,8 @@ class RideHistoryViewModelTest {
                     elevationGainM = 50.0,
                     caloriesKcal = 200.0,
                 )
-            rideRepo.rides.add(ride)
-            trackPointRepo.getPointsError = DataError.Local.UNKNOWN
+            rideRepo.emitRides(listOf(ride))
+            trackPointRepo.getResult = Result.Error(DataError.Local.UNKNOWN)
 
             val viewModel = viewModel()
 
@@ -251,7 +249,7 @@ class RideHistoryViewModelTest {
                 val undoEvent = awaitItem()
                 assertThat(undoEvent).isEqualTo(RideHistoryEvent.ShowUndoSnackbar)
                 // Verify ride was still deleted despite error
-                assertThat(rideRepo.rides.size).isEqualTo(0)
+                assertThat(currentRides().size).isEqualTo(0)
             }
         }
 
@@ -271,8 +269,8 @@ class RideHistoryViewModelTest {
                     elevationGainM = 50.0,
                     caloriesKcal = 200.0,
                 )
-            rideRepo.rides.add(ride)
-            lapRepo.getLapsError = DataError.Local.UNKNOWN
+            rideRepo.emitRides(listOf(ride))
+            lapRepo.getResult = Result.Error(DataError.Local.UNKNOWN)
 
             val viewModel = viewModel()
 
@@ -283,7 +281,7 @@ class RideHistoryViewModelTest {
                 val undoEvent = awaitItem()
                 assertThat(undoEvent).isEqualTo(RideHistoryEvent.ShowUndoSnackbar)
                 // Verify ride was still deleted despite error
-                assertThat(rideRepo.rides.size).isEqualTo(0)
+                assertThat(currentRides().size).isEqualTo(0)
             }
         }
 
@@ -303,9 +301,9 @@ class RideHistoryViewModelTest {
                     elevationGainM = 50.0,
                     caloriesKcal = 200.0,
                 )
-            rideRepo.rides.add(ride)
+            rideRepo.emitRides(listOf(ride))
             val points = listOf(RideTrackPoint(timestampMs = 0L, latitude = 52.0, longitude = 21.0))
-            trackPointRepo.saved[1L] = points
+            trackPointRepo.setPoints(1L, points)
 
             val viewModel = viewModel()
 
@@ -316,7 +314,7 @@ class RideHistoryViewModelTest {
             }
 
             // Set up save error for undo
-            trackPointRepo.savePointsError = DataError.Local.UNKNOWN
+            trackPointRepo.saveResult = Result.Error(DataError.Local.UNKNOWN)
 
             // Undo and check for error
             viewModel.events.test {
@@ -326,7 +324,7 @@ class RideHistoryViewModelTest {
             }
 
             // Verify ride was still restored despite savePoints failure
-            assertThat(rideRepo.rides.size).isEqualTo(1)
+            assertThat(currentRides().size).isEqualTo(1)
         }
 
     @Test
@@ -345,10 +343,10 @@ class RideHistoryViewModelTest {
                     elevationGainM = 50.0,
                     caloriesKcal = 200.0,
                 )
-            rideRepo.rides.add(ride)
+            rideRepo.emitRides(listOf(ride))
             val laps =
                 listOf(LapRecord(lapNumber = 1, distanceKm = 5.0, movingTimeSeconds = 300L, averageSpeedKmh = 20.0, elevationGainM = 10.0))
-            lapRepo.saved[1L] = laps
+            lapRepo.setLaps(1L, laps)
 
             val viewModel = viewModel()
 
@@ -359,7 +357,7 @@ class RideHistoryViewModelTest {
             }
 
             // Set up save error for undo
-            lapRepo.saveLapsError = DataError.Local.UNKNOWN
+            lapRepo.saveResult = Result.Error(DataError.Local.UNKNOWN)
 
             // Undo and check for error
             viewModel.events.test {
@@ -369,75 +367,6 @@ class RideHistoryViewModelTest {
             }
 
             // Verify ride was still restored despite saveLaps failure
-            assertThat(rideRepo.rides.size).isEqualTo(1)
+            assertThat(currentRides().size).isEqualTo(1)
         }
-
-    class FakeRideHistoryRepository : RideHistoryRepository {
-        val rides = mutableListOf<RideRecord>()
-
-        fun emitRides(list: List<RideRecord>) {
-            rides.clear()
-            rides.addAll(list)
-        }
-
-        override fun observeAll(): Flow<List<RideRecord>> = flowOf(rides.toList())
-
-        override suspend fun getById(id: Long): Result<RideRecord, DataError.Local> =
-            rides.find { it.id == id }?.let { Result.Success(it) }
-                ?: Result.Error(DataError.Local.NOT_FOUND)
-
-        override suspend fun save(ride: RideRecord) =
-            Result.Success(ride.id).also {
-                rides.removeAll { it.id == ride.id }
-                rides.add(ride)
-            }
-
-        override suspend fun deleteById(id: Long) = Result.Success(Unit).also { rides.removeAll { it.id == id } }
-
-        override suspend fun deleteAll() = Result.Success(Unit).also { rides.clear() }
-    }
-
-    class FakeUserSettingsRepository : UserSettingsRepository {
-        override fun observeSettings(): Flow<UserSettings> = flowOf(UserSettings(weightKg = 75, age = 30))
-
-        override suspend fun save(settings: UserSettings) = Result.Success(Unit)
-    }
-
-    class FakeTrackPointRepository : RideTrackPointRepository {
-        val saved = mutableMapOf<Long, List<RideTrackPoint>>()
-        var getPointsError: DataError.Local? = null
-        var savePointsError: DataError.Local? = null
-
-        override suspend fun savePoints(
-            rideId: Long,
-            points: List<RideTrackPoint>,
-        ): EmptyResult<DataError.Local> =
-            savePointsError?.let { Result.Error(it) } ?: run {
-                saved[rideId] = points
-                Result.Success(Unit)
-            }
-
-        override suspend fun getPoints(rideId: Long): Result<List<RideTrackPoint>, DataError.Local> =
-            getPointsError?.let { Result.Error(it) }
-                ?: Result.Success(saved[rideId] ?: emptyList())
-    }
-
-    class FakeLapRepository : RideLapRepository {
-        val saved = mutableMapOf<Long, List<LapRecord>>()
-        var getLapsError: DataError.Local? = null
-        var saveLapsError: DataError.Local? = null
-
-        override suspend fun saveLaps(
-            rideId: Long,
-            laps: List<LapRecord>,
-        ): EmptyResult<DataError.Local> =
-            saveLapsError?.let { Result.Error(it) } ?: run {
-                saved[rideId] = laps
-                Result.Success(Unit)
-            }
-
-        override suspend fun getLaps(rideId: Long): Result<List<LapRecord>, DataError.Local> =
-            getLapsError?.let { Result.Error(it) }
-                ?: Result.Success(saved[rideId] ?: emptyList())
-    }
 }
