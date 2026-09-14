@@ -1268,21 +1268,26 @@ to:
     timeout-minutes: 60
 ```
 
-- [ ] **Step 2: Parallelize the run**
+- [ ] **Step 2: Parallelize the build, not the device phase**
 
-In the "Run instrumented tests" step, change:
+The Gradle overhead worth parallelizing is the compilation of six androidTest APKs, and CI already
+does that in its own earlier step. Add the flag there — in "Assemble debug androidTest APKs":
+
+```yaml
+        run: ./gradlew assembleDebugAndroidTest --no-daemon --parallel
+```
+
+Leave the "Run instrumented tests" step serial:
 
 ```yaml
           script: ./gradlew connectedDebugAndroidTest --no-daemon
 ```
 
-to:
-
-```yaml
-          script: ./gradlew connectedDebugAndroidTest --no-daemon --parallel
-```
-
-The unqualified `connectedDebugAndroidTest` already fans out to every module, so no module list needs maintaining.
+`--parallel` parallelizes across projects, so on that step it would have six modules installing
+APKs and driving `am instrument` concurrently against a single emulator. By then Gradle is mostly
+up-to-date, so there is little left to overlap, while the CPU contention lands on the
+timing-sensitive ride-tracking tests. The unqualified `connectedDebugAndroidTest` already fans out
+to every module, so no module list needs maintaining either way.
 
 - [ ] **Step 3: Verify locally that the fan-out reaches the new modules**
 

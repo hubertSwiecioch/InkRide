@@ -192,9 +192,21 @@ abstract class HistoryTestHarness {
     protected open fun initialRides(): List<RideRecord> = emptyList()
 
     val settingsRepository by lazy { FakeUserSettingsRepository(initialSettings()) }
-    val historyRepository by lazy { FakeRideHistoryRepository(initialRides()) }
     val lapRepository by lazy { FakeRideLapRepository() }
     val trackPointRepository by lazy { FakeRideTrackPointRepository() }
+
+    // The lap and track-point fakes are handed to the history fake so that
+    // deleting a ride clears them too, reproducing the `onDelete = CASCADE` that
+    // RideLapEntity and RideTrackPointEntity declare. Without this wiring the
+    // undo test below passes even when the undo path restores nothing — the laps
+    // it asserts on were never removed in the first place.
+    val historyRepository by lazy {
+        FakeRideHistoryRepository(
+            initial = initialRides(),
+            lapRepository = lapRepository,
+            trackPointRepository = trackPointRepository,
+        )
+    }
     val lifetimeStatsRepository by lazy { FakeLifetimeStatsRepository() }
     val gpxExporter by lazy { FakeGpxExporter() }
 
@@ -412,6 +424,8 @@ class RideHistoryScreenTest : HistoryTestHarness() {
     }
 }
 ```
+
+This test is only meaningful because `HistoryTestHarness` wires the lap and track-point fakes into the history fake, so the delete actually clears them. Verify that wiring is in place before trusting a green result here.
 
 The undo assertion reads the restored ride's id back from the repository rather than assuming it: the ViewModel re-saves the ride it buffered, and whether the original row id is reused is an implementation detail of the save path.
 
