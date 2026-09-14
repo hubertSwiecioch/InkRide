@@ -77,8 +77,23 @@ class RideTrackPointDaoTest : DatabaseTestBase() {
         runTest {
             val rideId = db.rideHistoryDao().insert(TestEntities.ride())
             dao.insertAll(listOf(TestEntities.trackPoint(rideId, TestEntities.START_MS)))
+            // Prove the rows are there first: without this the test passes
+            // unchanged against a getForRide that always returns empty.
+            assertThat(dao.getForRide(rideId)).hasSize(1)
 
             db.rideHistoryDao().deleteById(rideId)
+
+            assertThat(dao.getForRide(rideId)).isEmpty()
+        }
+
+    @Test
+    fun deletingEveryRideCascadesToEveryTrackPoint() =
+        runTest {
+            val rideId = db.rideHistoryDao().insert(TestEntities.ride())
+            dao.insertAll(listOf(TestEntities.trackPoint(rideId, TestEntities.START_MS)))
+            assertThat(dao.getForRide(rideId)).hasSize(1)
+
+            db.rideHistoryDao().deleteAll()
 
             assertThat(dao.getForRide(rideId)).isEmpty()
         }

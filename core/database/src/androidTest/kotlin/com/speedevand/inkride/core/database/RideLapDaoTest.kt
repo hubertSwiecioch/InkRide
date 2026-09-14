@@ -49,6 +49,9 @@ class RideLapDaoTest : DatabaseTestBase() {
         runTest {
             val rideId = db.rideHistoryDao().insert(TestEntities.ride())
             dao.insertAll(listOf(TestEntities.lap(rideId, 1), TestEntities.lap(rideId, 2)))
+            // Prove the rows are there first: without this the test passes
+            // unchanged against a getForRide that always returns empty.
+            assertThat(dao.getForRide(rideId)).hasSize(2)
 
             db.rideHistoryDao().deleteById(rideId)
 
@@ -60,6 +63,7 @@ class RideLapDaoTest : DatabaseTestBase() {
         runTest {
             val rideId = db.rideHistoryDao().insert(TestEntities.ride())
             dao.insertAll(listOf(TestEntities.lap(rideId, 1)))
+            assertThat(dao.getForRide(rideId)).hasSize(1)
 
             db.rideHistoryDao().deleteAll()
 
