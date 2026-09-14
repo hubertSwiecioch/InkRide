@@ -6,12 +6,12 @@ import assertk.assertThat
 import assertk.assertions.isEqualTo
 import assertk.assertions.isGreaterThan
 import assertk.assertions.isLessThan
+import com.speedevand.inkride.core.testing.support.stringRes
+import com.speedevand.inkride.core.testing.support.textOf
+import com.speedevand.inkride.core.testing.support.waitUntilTagText
 import com.speedevand.inkride.dashboard.presentation.DashboardConstants
 import com.speedevand.inkride.dashboard.presentation.DashboardTestTags
 import com.speedevand.inkride.dashboard.presentation.R
-import com.speedevand.inkride.tracking.support.dashboardString
-import com.speedevand.inkride.tracking.support.textOf
-import com.speedevand.inkride.tracking.support.waitUntilTagText
 import org.junit.Test
 
 class RideTrackingManualPauseResumeAndMultiRideTest : RideTrackingE2ETestBase() {
@@ -22,13 +22,13 @@ class RideTrackingManualPauseResumeAndMultiRideTest : RideTrackingE2ETestBase() 
         feedMovingSteps(count = 5)
 
         composeTestRule.waitUntilTagText(DashboardTestTags.STATUS_INDICATOR) {
-            it == dashboardString(R.string.dashboard_status_recording)
+            it == stringRes(R.string.dashboard_status_recording)
         }
         val movingTimeBeforePause = composeTestRule.textOf(DashboardTestTags.METRIC_MOVING_TIME)
 
         composeTestRule.onNodeWithTag(DashboardTestTags.START_PAUSE_BUTTON).performClick()
         composeTestRule.waitUntilTagText(DashboardTestTags.STATUS_INDICATOR) {
-            it == dashboardString(R.string.dashboard_status_paused)
+            it == stringRes(R.string.dashboard_status_paused)
         }
 
         // Feed a couple more samples while paused: RideTracker must not
@@ -40,7 +40,7 @@ class RideTrackingManualPauseResumeAndMultiRideTest : RideTrackingE2ETestBase() 
 
         composeTestRule.onNodeWithTag(DashboardTestTags.START_PAUSE_BUTTON).performClick()
         composeTestRule.waitUntilTagText(DashboardTestTags.STATUS_INDICATOR) {
-            it == dashboardString(R.string.dashboard_status_recording)
+            it == stringRes(R.string.dashboard_status_recording)
         }
         feedMovingSteps(count = 5)
 
@@ -53,7 +53,7 @@ class RideTrackingManualPauseResumeAndMultiRideTest : RideTrackingE2ETestBase() 
 
         composeTestRule.onNodeWithTag(DashboardTestTags.STOP_RESET_BUTTON).performClick()
         composeTestRule.waitUntilTagText(DashboardTestTags.STATUS_INDICATOR) {
-            it == dashboardString(R.string.dashboard_status_ready)
+            it == stringRes(R.string.dashboard_status_ready)
         }
         assertThat(composeTestRule.textOf(DashboardTestTags.METRIC_DISTANCE))
             .isEqualTo(DashboardConstants.DISTANCE_ZERO)
@@ -62,7 +62,7 @@ class RideTrackingManualPauseResumeAndMultiRideTest : RideTrackingE2ETestBase() 
         // ride's distance/time.
         composeTestRule.onNodeWithTag(DashboardTestTags.START_PAUSE_BUTTON).performClick()
         composeTestRule.waitUntilTagText(DashboardTestTags.STATUS_INDICATOR) {
-            it == dashboardString(R.string.dashboard_status_recording)
+            it == stringRes(R.string.dashboard_status_recording)
         }
         assertThat(composeTestRule.textOf(DashboardTestTags.METRIC_DISTANCE))
             .isEqualTo(DashboardConstants.DISTANCE_ZERO)

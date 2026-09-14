@@ -1,10 +1,10 @@
 package com.speedevand.inkride.tracking
 
+import com.speedevand.inkride.core.testing.support.stringRes
+import com.speedevand.inkride.core.testing.support.waitUntilTagText
 import com.speedevand.inkride.dashboard.presentation.DashboardTestTags
 import com.speedevand.inkride.dashboard.presentation.R
 import com.speedevand.inkride.tracking.support.RideSamples
-import com.speedevand.inkride.tracking.support.dashboardString
-import com.speedevand.inkride.tracking.support.waitUntilTagText
 import org.junit.Test
 
 /**
@@ -22,7 +22,7 @@ class RideTrackingAutoPauseTest : RideTrackingE2ETestBase() {
         // Get above the auto-pause threshold first.
         feedMovingSteps(count = 3)
         composeTestRule.waitUntilTagText(DashboardTestTags.STATUS_INDICATOR) {
-            it == dashboardString(R.string.dashboard_status_recording)
+            it == stringRes(R.string.dashboard_status_recording)
         }
 
         // Stop moving for longer than the 3s auto-pause delay. Stationary
@@ -33,7 +33,7 @@ class RideTrackingAutoPauseTest : RideTrackingE2ETestBase() {
             Thread.sleep(1_000L)
         }
         composeTestRule.waitUntilTagText(DashboardTestTags.STATUS_INDICATOR, timeoutMillis = 10_000L) {
-            it == dashboardString(R.string.dashboard_status_auto_paused)
+            it == stringRes(R.string.dashboard_status_auto_paused)
         }
 
         // Move again, above the (higher) auto-resume threshold — continuing
@@ -41,7 +41,7 @@ class RideTrackingAutoPauseTest : RideTrackingE2ETestBase() {
         // off, not teleporting.
         feedMovingSteps(count = 3)
         composeTestRule.waitUntilTagText(DashboardTestTags.STATUS_INDICATOR, timeoutMillis = 10_000L) {
-            it == dashboardString(R.string.dashboard_status_recording)
+            it == stringRes(R.string.dashboard_status_recording)
         }
     }
 }

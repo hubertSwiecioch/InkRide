@@ -7,11 +7,11 @@ import com.speedevand.inkride.core.domain.tracking.RideSensorSample
 import com.speedevand.inkride.core.domain.tracking.RideTracker
 import com.speedevand.inkride.core.domain.tracking.RoutePoint
 import com.speedevand.inkride.core.domain.tracking.RouteWaypoint
+import com.speedevand.inkride.core.testing.support.stringRes
+import com.speedevand.inkride.core.testing.support.textOf
+import com.speedevand.inkride.core.testing.support.waitUntilTagContentDescription
 import com.speedevand.inkride.dashboard.presentation.DashboardTestTags
 import com.speedevand.inkride.dashboard.presentation.R
-import com.speedevand.inkride.tracking.support.dashboardString
-import com.speedevand.inkride.tracking.support.textOf
-import com.speedevand.inkride.tracking.support.waitUntilTagContentDescription
 import org.junit.Test
 import org.koin.core.context.GlobalContext
 import kotlin.math.cos
@@ -57,7 +57,7 @@ class RideTrackingRouteFollowingTest : RideTrackingE2ETestBase() {
         feedEastboundSteps(count = 5, speedKmh = 20.0)
 
         composeTestRule.waitUntilTagContentDescription(DashboardTestTags.ROUTE_NEXT_TURN_ICON) {
-            it == dashboardString(R.string.dashboard_route_turn_right)
+            it == stringRes(R.string.dashboard_route_turn_right)
         }
 
         assertThat(composeTestRule.textOf(DashboardTestTags.ROUTE_NEXT_TURN_TEXT)).contains("Corner")
