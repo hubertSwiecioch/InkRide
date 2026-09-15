@@ -31,9 +31,6 @@ class RideSampleAssemblerTest {
                 altitudeFromBarometerM = 100.0,
                 smoothedHeadingDeg = null,
                 nowMs = 1_000L,
-                gpsTimestampMs = 1_000L,
-                pressureTimestampMs = 1_000L,
-                headingTimestampMs = 1_000L,
             )
 
         // First fix ever fed to a fresh PositionKalmanFilter passes through unchanged
@@ -60,9 +57,6 @@ class RideSampleAssemblerTest {
                 altitudeFromBarometerM = 100.0,
                 smoothedHeadingDeg = 45f,
                 nowMs = 1_000L,
-                gpsTimestampMs = 0L,
-                pressureTimestampMs = 1_000L,
-                headingTimestampMs = 0L,
             )
 
         assertThat(sample.latitude).isNull()
@@ -87,9 +81,6 @@ class RideSampleAssemblerTest {
                 altitudeFromBarometerM = null,
                 smoothedHeadingDeg = null,
                 nowMs = 1_000L,
-                gpsTimestampMs = 1_000L,
-                pressureTimestampMs = 0L,
-                headingTimestampMs = 0L,
             )
         assertThat(first.latitude).isEqualTo(50.0)
         assertThat(first.longitude).isEqualTo(19.0)
@@ -105,9 +96,6 @@ class RideSampleAssemblerTest {
                 altitudeFromBarometerM = null,
                 smoothedHeadingDeg = null,
                 nowMs = 1_000L,
-                gpsTimestampMs = 1_000L,
-                pressureTimestampMs = 0L,
-                headingTimestampMs = 0L,
             )
 
         assertThat(second.latitude).isEqualTo(50.0)
@@ -124,9 +112,6 @@ class RideSampleAssemblerTest {
             altitudeFromBarometerM = null,
             smoothedHeadingDeg = null,
             nowMs = 1_000L,
-            gpsTimestampMs = 1_000L,
-            pressureTimestampMs = 0L,
-            headingTimestampMs = 0L,
         )
 
         // Use a 100-second window instead of 1 second to keep the velocity reasonable
@@ -140,9 +125,6 @@ class RideSampleAssemblerTest {
                 altitudeFromBarometerM = null,
                 smoothedHeadingDeg = null,
                 nowMs = 101_000L,
-                gpsTimestampMs = 101_000L,
-                pressureTimestampMs = 0L,
-                headingTimestampMs = 0L,
             )
 
         // A genuinely new fix is blended by the filter, not passed through: the
@@ -172,9 +154,6 @@ class RideSampleAssemblerTest {
                 altitudeFromBarometerM = null,
                 smoothedHeadingDeg = 10f,
                 nowMs = 1_000L,
-                gpsTimestampMs = 1_000L,
-                pressureTimestampMs = 0L,
-                headingTimestampMs = 0L,
             )
 
         assertThat(sample.bearingDegrees).isEqualTo(200f)
@@ -200,9 +179,6 @@ class RideSampleAssemblerTest {
                 altitudeFromBarometerM = null,
                 smoothedHeadingDeg = 10f,
                 nowMs = 1_000L,
-                gpsTimestampMs = 1_000L,
-                pressureTimestampMs = 0L,
-                headingTimestampMs = 0L,
             )
 
         // The >= comparison in the original code means the boundary itself
@@ -230,9 +206,6 @@ class RideSampleAssemblerTest {
                 altitudeFromBarometerM = null,
                 smoothedHeadingDeg = 10f,
                 nowMs = 1_000L,
-                gpsTimestampMs = 1_000L,
-                pressureTimestampMs = 0L,
-                headingTimestampMs = 0L,
             )
 
         assertThat(sample.bearingDegrees).isEqualTo(10f)
@@ -249,9 +222,6 @@ class RideSampleAssemblerTest {
                 altitudeFromBarometerM = null,
                 smoothedHeadingDeg = 77f,
                 nowMs = 1_000L,
-                gpsTimestampMs = 0L,
-                pressureTimestampMs = 0L,
-                headingTimestampMs = 1_000L,
             )
 
         assertThat(sample.bearingDegrees).isEqualTo(77f)
@@ -268,9 +238,6 @@ class RideSampleAssemblerTest {
                 altitudeFromBarometerM = null,
                 smoothedHeadingDeg = null,
                 nowMs = 1_000L,
-                gpsTimestampMs = 0L,
-                pressureTimestampMs = 0L,
-                headingTimestampMs = 0L,
             )
 
         assertThat(sample.bearingDegrees).isNull()
@@ -287,9 +254,6 @@ class RideSampleAssemblerTest {
                 altitudeFromBarometerM = null,
                 smoothedHeadingDeg = Float.NaN,
                 nowMs = 1_000L,
-                gpsTimestampMs = 0L,
-                pressureTimestampMs = 0L,
-                headingTimestampMs = 1_000L,
             )
 
         assertThat(sample.bearingDegrees).isNull()
@@ -315,9 +279,6 @@ class RideSampleAssemblerTest {
                 altitudeFromBarometerM = null,
                 smoothedHeadingDeg = null,
                 nowMs = 1_000L,
-                gpsTimestampMs = 1_000L,
-                pressureTimestampMs = 0L,
-                headingTimestampMs = 0L,
             )
 
         assertThat(sample.bearingDegrees).isNull()
@@ -334,9 +295,6 @@ class RideSampleAssemblerTest {
                 altitudeFromBarometerM = null,
                 smoothedHeadingDeg = -10f,
                 nowMs = 1_000L,
-                gpsTimestampMs = 0L,
-                pressureTimestampMs = 0L,
-                headingTimestampMs = 1_000L,
             )
 
         assertThat(sample.bearingDegrees).isEqualTo(350f)
@@ -362,43 +320,25 @@ class RideSampleAssemblerTest {
                 altitudeFromBarometerM = null,
                 smoothedHeadingDeg = null,
                 nowMs = 1_000L,
-                gpsTimestampMs = 1_000L,
-                pressureTimestampMs = 0L,
-                headingTimestampMs = 0L,
             )
 
         assertThat(sample.bearingDegrees).isEqualTo(10f)
     }
 
     @Test
-    fun `sample timestamp is the max of the per-sensor timestamps and now`() {
+    fun `sample timestamp is the emit time`() {
         val assembler = RideSampleAssembler()
 
-        val pressureNewest =
+        val sample =
             assembler.assemble(
                 rawFix = null,
-                pressureHpa = null,
-                altitudeFromBarometerM = null,
-                smoothedHeadingDeg = null,
-                nowMs = 500L,
-                gpsTimestampMs = 100L,
-                pressureTimestampMs = 900L,
-                headingTimestampMs = 200L,
+                pressureHpa = 1013.25,
+                altitudeFromBarometerM = 100.0,
+                smoothedHeadingDeg = 42f,
+                nowMs = 7_500L,
             )
-        assertThat(pressureNewest.timestampMs).isEqualTo(900L)
 
-        val nowNewest =
-            assembler.assemble(
-                rawFix = null,
-                pressureHpa = null,
-                altitudeFromBarometerM = null,
-                smoothedHeadingDeg = null,
-                nowMs = 1_000L,
-                gpsTimestampMs = 100L,
-                pressureTimestampMs = 200L,
-                headingTimestampMs = 300L,
-            )
-        assertThat(nowNewest.timestampMs).isEqualTo(1_000L)
+        assertThat(sample.timestampMs).isEqualTo(7_500L)
     }
 
     @Test
@@ -412,9 +352,6 @@ class RideSampleAssemblerTest {
                 altitudeFromBarometerM = 123.4,
                 smoothedHeadingDeg = null,
                 nowMs = 1_000L,
-                gpsTimestampMs = 0L,
-                pressureTimestampMs = 0L,
-                headingTimestampMs = 0L,
             )
         assertThat(withAltitude.altitudeFromBarometerM).isEqualTo(123.4)
 
@@ -425,9 +362,6 @@ class RideSampleAssemblerTest {
                 altitudeFromBarometerM = null,
                 smoothedHeadingDeg = null,
                 nowMs = 1_000L,
-                gpsTimestampMs = 0L,
-                pressureTimestampMs = 0L,
-                headingTimestampMs = 0L,
             )
         assertThat(withoutAltitude.altitudeFromBarometerM).isNull()
     }
@@ -444,9 +378,6 @@ class RideSampleAssemblerTest {
                 altitudeFromBarometerM = null,
                 smoothedHeadingDeg = null,
                 nowMs = 1_000L,
-                gpsTimestampMs = 1_000L,
-                pressureTimestampMs = 0L,
-                headingTimestampMs = 0L,
             )
         assertThat(first.latitude).isEqualTo(50.0)
 
@@ -457,9 +388,6 @@ class RideSampleAssemblerTest {
                 altitudeFromBarometerM = null,
                 smoothedHeadingDeg = null,
                 nowMs = 2_000L,
-                gpsTimestampMs = 1_000L,
-                pressureTimestampMs = 0L,
-                headingTimestampMs = 0L,
             )
         assertThat(whileUnusable.latitude).isNull()
         assertThat(whileUnusable.longitude).isNull()
@@ -471,9 +399,6 @@ class RideSampleAssemblerTest {
                 altitudeFromBarometerM = null,
                 smoothedHeadingDeg = null,
                 nowMs = 3_000L,
-                gpsTimestampMs = 1_000L,
-                pressureTimestampMs = 0L,
-                headingTimestampMs = 0L,
             )
         assertThat(sameFixReappears.latitude).isEqualTo(50.0)
         assertThat(sameFixReappears.longitude).isEqualTo(19.0)

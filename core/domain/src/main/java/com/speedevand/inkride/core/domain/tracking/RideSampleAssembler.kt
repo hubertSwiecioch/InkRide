@@ -46,9 +46,6 @@ class RideSampleAssembler(
         altitudeFromBarometerM: Double?,
         smoothedHeadingDeg: Float?,
         nowMs: Long,
-        gpsTimestampMs: Long,
-        pressureTimestampMs: Long,
-        headingTimestampMs: Long,
     ): RideSensorSample {
         val filteredPosition = feedKalmanFilter(rawFix)
 
@@ -62,7 +59,10 @@ class RideSampleAssembler(
                 ?.let { ((it % 360f) + 360f) % 360f }
 
         return RideSensorSample(
-            timestampMs = maxOf(gpsTimestampMs, pressureTimestampMs, headingTimestampMs, nowMs),
+            // Emit time. Every sensor branch stamps its reading the moment it
+            // fires and emits from the same call, so a separate per-sensor
+            // timestamp would always equal this value.
+            timestampMs = nowMs,
             latitude = filteredPosition?.latitude,
             longitude = filteredPosition?.longitude,
             altitudeFromGpsM = rawFix?.altitudeM,

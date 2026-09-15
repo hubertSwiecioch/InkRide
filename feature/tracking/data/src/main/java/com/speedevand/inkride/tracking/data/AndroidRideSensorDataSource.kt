@@ -96,13 +96,6 @@ class AndroidRideSensorDataSource(
     // Fixes with accuracy worse than this have their GPS data suppressed.
     private val maxSourceAccuracyM: Float = 50.0f
 
-    // Individual sensor timestamps for accurate time attribution.
-    // When emitSample() fires, the sample timestamp reflects the most recent
-    // sensor event rather than the emit call time.
-    private var lastGpsTimestampMs: Long = 0L
-    private var lastPressureTimestampMs: Long = 0L
-    private var lastHeadingTimestampMs: Long = 0L
-
     // Rate-limiting for pressure-triggered emissions: at most every ~500ms.
     // Barometer fires at ~5 Hz (SENSOR_DELAY_NORMAL = 200ms) but we don't
     // need that density for altitude tracking during GPS gaps.
@@ -125,7 +118,6 @@ class AndroidRideSensorDataSource(
                 override fun onSensorChanged(event: SensorEvent?) {
                     if (event == null || event.values.isEmpty()) return
                     lastPressureHpa = event.values[0]
-                    lastPressureTimestampMs = System.currentTimeMillis()
 
                     // Emit sample from pressure sensor so altitude updates even
                     // when GPS is unavailable (tunnels, dense tree cover).
@@ -161,7 +153,6 @@ class AndroidRideSensorDataSource(
 
                     val update = headingSmoother.update(azimuth, magneticDeclinationDeg)
                     lastHeading = update.smoothedHeadingDeg
-                    lastHeadingTimestampMs = System.currentTimeMillis()
 
                     // Throttle emissions to ~2° steps to avoid flooding the
                     // sample flow (and the E-Ink redraw) with micro-changes.
@@ -185,7 +176,6 @@ class AndroidRideSensorDataSource(
             object : LocationListener {
                 override fun onLocationChanged(location: Location) {
                     lastLocation = location
-                    lastGpsTimestampMs = System.currentTimeMillis()
                     // Refresh magnetic declination so the magnetometer heading can be
                     // corrected to true north.
                     magneticDeclinationDeg =
@@ -308,9 +298,6 @@ class AndroidRideSensorDataSource(
                 altitudeFromBarometerM = altitudeFromBarometer,
                 smoothedHeadingDeg = lastHeading,
                 nowMs = now,
-                gpsTimestampMs = lastGpsTimestampMs,
-                pressureTimestampMs = lastPressureTimestampMs,
-                headingTimestampMs = lastHeadingTimestampMs,
             )
 
         samplesFlow.tryEmit(sample)
@@ -341,9 +328,6 @@ class AndroidRideSensorDataSource(
         magneticDeclinationDeg = 0f
         isOrientationSensorUnreliable = false
         lastSatelliteCount = null
-        lastGpsTimestampMs = 0L
-        lastPressureTimestampMs = 0L
-        lastHeadingTimestampMs = 0L
         lastPressureEmitTimestampMs = 0L
     }
 
