@@ -11,6 +11,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import assertk.assertThat
 import assertk.assertions.isEqualTo
 import assertk.assertions.isTrue
+import com.speedevand.inkride.core.domain.settings.BikeType
 import com.speedevand.inkride.core.domain.settings.MeasurementUnits
 import com.speedevand.inkride.core.testing.support.TestSettings
 import com.speedevand.inkride.core.testing.support.stringRes
@@ -144,6 +145,17 @@ class SettingsScreenProfileTest : SettingsTestHarness() {
         composeTestRule
             .onNodeWithTag(SettingsTestTags.stepperValue(SettingsTestTags.BIKE_WEIGHT))
             .assertIsNotDisplayed()
+    }
+
+    @Test
+    fun choosingABikeTypePersistsIt() {
+        setSettingsContent()
+
+        selectTab(SettingsTab.BIKE)
+        clickTag(SettingsTestTags.radio(BikeType.MTB.name))
+
+        awaitSaved { it.bikeType == BikeType.MTB }
+        assertThat(settingsRepository.lastSaved?.bikeType).isEqualTo(BikeType.MTB)
     }
 
     @Test

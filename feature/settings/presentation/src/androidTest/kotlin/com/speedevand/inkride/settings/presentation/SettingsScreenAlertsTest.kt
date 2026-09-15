@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import assertk.assertThat
+import assertk.assertions.isEqualTo
 import assertk.assertions.isNotNull
 import assertk.assertions.isNull
 import com.speedevand.inkride.core.testing.support.stringRes
@@ -81,6 +82,32 @@ class SettingsScreenAlertsTest : SettingsTestHarness() {
         awaitSaved { it.alerts.hrZoneMinBpm != null }
         assertThat(settingsRepository.lastSaved?.alerts?.hrZoneMinBpm).isNotNull()
         assertThat(settingsRepository.lastSaved?.alerts?.hrZoneMaxBpm).isNull()
+    }
+
+    @Test
+    fun steppingTheMinimumHeartRateThresholdPersists() {
+        openAlerts()
+        clickTag(SettingsTestTags.switch(SettingsTestTags.ALERT_HR_MIN))
+        awaitSaved { it.alerts.hrZoneMinBpm != null }
+        val before = settingsRepository.lastSaved!!.alerts.hrZoneMinBpm!!
+
+        clickTag(SettingsTestTags.stepperPlus(SettingsTestTags.ALERT_HR_MIN))
+
+        awaitSaved { (it.alerts.hrZoneMinBpm ?: before) > before }
+        assertThat(settingsRepository.lastSaved?.alerts?.hrZoneMinBpm).isEqualTo(before + 5)
+    }
+
+    @Test
+    fun steppingTheMaximumHeartRateThresholdDownPersists() {
+        openAlerts()
+        clickTag(SettingsTestTags.switch(SettingsTestTags.ALERT_HR_MAX))
+        awaitSaved { it.alerts.hrZoneMaxBpm != null }
+        val before = settingsRepository.lastSaved!!.alerts.hrZoneMaxBpm!!
+
+        clickTag(SettingsTestTags.stepperMinus(SettingsTestTags.ALERT_HR_MAX))
+
+        awaitSaved { (it.alerts.hrZoneMaxBpm ?: before) < before }
+        assertThat(settingsRepository.lastSaved?.alerts?.hrZoneMaxBpm).isEqualTo(before - 5)
     }
 
     @Test
