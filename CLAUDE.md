@@ -76,7 +76,7 @@ Type-safe Compose Navigation routes (`@Serializable` objects/data classes) defin
 
 Every application feature must be covered by both **unit tests** and **instrumented tests**:
 - **Unit tests** — ViewModels, use cases, mappers, and other business logic (JVM, run via `test`/`testDebugUnitTest`)
-- **Instrumented tests** — UI/Compose screens, DAOs, and other Android-framework-dependent code (run via `connectedDebugAndroidTest` on a device/emulator)
+- **Instrumented tests** — UI/Compose screens, DAOs, and other Android-framework-dependent code (run via `connectedDebugAndroidTest` on a device/emulator). Screen-level tests live in each `:feature:*:presentation` module's `androidTest`, rendering the `*Root` composable over fakes bound through `KoinTestRule`; `:app/androidTest` holds only flows that cross module boundaries (ride tracking, navigation, ride → history, process death). Shared fakes, data builders, `KoinTestRule` and Compose helpers live in `:core:testing` — add a new fake there rather than in a module, unless the interface it fakes is declared inside a feature module.
 
 No new functionality should be merged without both test types where applicable. See `android-testing` skill for patterns.
 

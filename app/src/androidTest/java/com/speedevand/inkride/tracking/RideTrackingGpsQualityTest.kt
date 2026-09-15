@@ -4,12 +4,12 @@ import assertk.assertThat
 import assertk.assertions.isEqualTo
 import assertk.assertions.isGreaterThan
 import assertk.assertions.isLessThanOrEqualTo
+import com.speedevand.inkride.core.testing.support.textOf
+import com.speedevand.inkride.core.testing.support.waitUntilTagText
 import com.speedevand.inkride.dashboard.presentation.DashboardTestTags
 import com.speedevand.inkride.tracking.support.RideSamples
 import com.speedevand.inkride.tracking.support.swipeMetricsPagerToNextPage
 import com.speedevand.inkride.tracking.support.swipeMetricsPagerToPreviousPage
-import com.speedevand.inkride.tracking.support.textOf
-import com.speedevand.inkride.tracking.support.waitUntilTagText
 import org.junit.Test
 
 /**

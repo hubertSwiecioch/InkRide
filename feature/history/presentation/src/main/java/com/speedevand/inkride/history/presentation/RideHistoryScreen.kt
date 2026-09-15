@@ -25,10 +25,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -113,7 +115,7 @@ fun RideHistoryScreen(
     snackbarHostState: SnackbarHostStateMMD,
     onAction: (RideHistoryAction) -> Unit,
 ) {
-    var showConfirmDeleteAll by remember { mutableStateOf(false) }
+    var showConfirmDeleteAll by rememberSaveable { mutableStateOf(false) }
 
     if (showConfirmDeleteAll) {
         ModalBottomSheetMMD(
@@ -123,6 +125,7 @@ fun RideHistoryScreen(
                 modifier =
                     Modifier
                         .fillMaxWidth()
+                        .testTag(HistoryTestTags.CONFIRM_DELETE_ALL_DIALOG)
                         .padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -142,7 +145,7 @@ fun RideHistoryScreen(
                 ) {
                     OutlinedButtonMMD(
                         onClick = { showConfirmDeleteAll = false },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).testTag(HistoryTestTags.CONFIRM_DELETE_ALL_CANCEL),
                     ) {
                         TextMMD(text = stringResource(R.string.history_action_cancel))
                     }
@@ -151,7 +154,7 @@ fun RideHistoryScreen(
                             onAction(RideHistoryAction.OnDeleteAll)
                             showConfirmDeleteAll = false
                         },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).testTag(HistoryTestTags.CONFIRM_DELETE_ALL_ACCEPT),
                     ) {
                         TextMMD(text = stringResource(R.string.history_action_delete))
                     }
@@ -172,14 +175,20 @@ fun RideHistoryScreen(
                     )
                 },
                 actions = {
-                    IconButton(onClick = { onAction(RideHistoryAction.OnLifetimeStatsClick) }) {
+                    IconButton(
+                        onClick = { onAction(RideHistoryAction.OnLifetimeStatsClick) },
+                        modifier = Modifier.testTag(HistoryTestTags.LIFETIME_STATS_BUTTON),
+                    ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ShowChart,
                             contentDescription = stringResource(R.string.ride_history_stats),
                         )
                     }
                     if (state.rides.isNotEmpty()) {
-                        IconButton(onClick = { showConfirmDeleteAll = true }) {
+                        IconButton(
+                            onClick = { showConfirmDeleteAll = true },
+                            modifier = Modifier.testTag(HistoryTestTags.DELETE_ALL_BUTTON),
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.DeleteSweep,
                                 contentDescription = stringResource(R.string.ride_history_delete_all),
@@ -202,7 +211,10 @@ fun RideHistoryScreen(
                 TextMMD(
                     text = stringResource(R.string.ride_history_empty),
                     style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(top = 24.dp),
+                    modifier =
+                        Modifier
+                            .testTag(HistoryTestTags.EMPTY_STATE)
+                            .padding(top = 24.dp),
                 )
             } else {
                 val lazyListState = rememberLazyListState()
@@ -211,6 +223,7 @@ fun RideHistoryScreen(
                     modifier =
                         Modifier
                             .weight(1f)
+                            .testTag(HistoryTestTags.LIST)
                             .verticalScrollbar(lazyListState),
                 ) {
                     items(state.rides, key = { it.id }) { ride ->
@@ -237,6 +250,7 @@ private fun RideHistoryItem(
         modifier =
             Modifier
                 .fillMaxWidth()
+                .testTag(HistoryTestTags.row(ride.id))
                 .clickable(onClick = onClick)
                 .padding(vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -244,13 +258,22 @@ private fun RideHistoryItem(
     ) {
         Column(modifier = Modifier.weight(1f)) {
             val separator = "  ·  "
-            TextMMD(text = ride.formattedDate, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+            TextMMD(
+                text = ride.formattedDate,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.testTag(HistoryTestTags.rowDate(ride.id)),
+            )
             TextMMD(
                 text = "${ride.distanceKm}$separator${ride.movingTime}$separator${ride.averageSpeedKmh}",
                 style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.testTag(HistoryTestTags.rowMetrics(ride.id)),
             )
         }
-        IconButton(onClick = onDelete) {
+        IconButton(
+            onClick = onDelete,
+            modifier = Modifier.testTag(HistoryTestTags.rowDelete(ride.id)),
+        ) {
             Icon(imageVector = Icons.Default.Delete, contentDescription = stringResource(R.string.ride_history_cd_delete))
         }
     }

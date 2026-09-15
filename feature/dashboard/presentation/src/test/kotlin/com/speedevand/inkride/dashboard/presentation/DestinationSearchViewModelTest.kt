@@ -24,15 +24,16 @@ import com.speedevand.inkride.core.domain.tracking.LocationError
 import com.speedevand.inkride.core.domain.tracking.LocationFix
 import com.speedevand.inkride.core.domain.tracking.PlaceResult
 import com.speedevand.inkride.core.domain.tracking.PlaceSearchError
-import com.speedevand.inkride.core.domain.tracking.PlaceSearchService
 import com.speedevand.inkride.core.domain.tracking.PlannedRoute
 import com.speedevand.inkride.core.domain.tracking.RideMetricsCalculator
 import com.speedevand.inkride.core.domain.tracking.RideSensorDataSource
 import com.speedevand.inkride.core.domain.tracking.RideSensorSample
 import com.speedevand.inkride.core.domain.tracking.RideTracker
-import com.speedevand.inkride.core.domain.tracking.RoutingError
-import com.speedevand.inkride.core.domain.tracking.RoutingService
 import com.speedevand.inkride.core.domain.tracking.SensorError
+import com.speedevand.inkride.core.testing.fakes.FakeCurrentLocationProvider
+import com.speedevand.inkride.core.testing.fakes.FakePlaceSearchService
+import com.speedevand.inkride.core.testing.fakes.FakeRoutingService
+import com.speedevand.inkride.core.testing.fakes.RouteRequest
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -77,26 +78,26 @@ class DestinationSearchViewModelTest {
             vm.onAction(DestinationSearchAction.OnQueryChanged("Wa"))
             advanceTimeBy(1_000L)
 
-            assertThat(placeSearchService.queriesReceived).hasSize(0)
+            assertThat(placeSearchService.queries).hasSize(0)
         }
 
     @Test
     fun `a query at least 3 characters long triggers a search after the debounce window`() =
         runTest(testDispatcher) {
-            placeSearchService.nextResult = Result.Success(listOf(PlaceResult("Warsaw, Poland", 52.2297, 21.0122)))
+            placeSearchService.result = Result.Success(listOf(PlaceResult("Warsaw, Poland", 52.2297, 21.0122)))
             val vm = viewModel()
 
             vm.onAction(DestinationSearchAction.OnQueryChanged("War"))
             advanceTimeBy(700L)
 
-            assertThat(placeSearchService.queriesReceived).isEqualTo(listOf("War"))
+            assertThat(placeSearchService.queries).isEqualTo(listOf("War"))
             assertThat(vm.state.value.results).hasSize(1)
         }
 
     @Test
     fun `only the latest query survives rapid typing`() =
         runTest(testDispatcher) {
-            placeSearchService.nextResult = Result.Success(emptyList())
+            placeSearchService.result = Result.Success(emptyList())
             val vm = viewModel()
 
             vm.onAction(DestinationSearchAction.OnQueryChanged("War"))
@@ -104,37 +105,37 @@ class DestinationSearchViewModelTest {
             vm.onAction(DestinationSearchAction.OnQueryChanged("Wars"))
             advanceTimeBy(700L)
 
-            assertThat(placeSearchService.queriesReceived).isEqualTo(listOf("Wars"))
+            assertThat(placeSearchService.queries).isEqualTo(listOf("Wars"))
         }
 
     @Test
     fun `deleting back below the minimum length and retyping the same query retries after a failure`() =
         runTest(testDispatcher) {
-            placeSearchService.nextResult = Result.Error(PlaceSearchError.NETWORK_FAILED)
+            placeSearchService.result = Result.Error(PlaceSearchError.NETWORK_FAILED)
             val vm = viewModel()
 
             vm.onAction(DestinationSearchAction.OnQueryChanged("War"))
             advanceTimeBy(700L)
-            assertThat(placeSearchService.queriesReceived).isEqualTo(listOf("War"))
+            assertThat(placeSearchService.queries).isEqualTo(listOf("War"))
 
             // Delete back below MIN_QUERY_LENGTH (filtered out, never searched) and
             // retype the exact same query -- this must NOT be suppressed as a
             // duplicate by distinctUntilChanged, or a failed search could never be
             // retried by the natural delete-and-retype gesture.
-            placeSearchService.nextResult = Result.Success(listOf(PlaceResult("Warsaw, Poland", 52.2297, 21.0122)))
+            placeSearchService.result = Result.Success(listOf(PlaceResult("Warsaw, Poland", 52.2297, 21.0122)))
             vm.onAction(DestinationSearchAction.OnQueryChanged("Wa"))
             advanceTimeBy(100L)
             vm.onAction(DestinationSearchAction.OnQueryChanged("War"))
             advanceTimeBy(700L)
 
-            assertThat(placeSearchService.queriesReceived).isEqualTo(listOf("War", "War"))
+            assertThat(placeSearchService.queries).isEqualTo(listOf("War", "War"))
             assertThat(vm.state.value.results).hasSize(1)
         }
 
     @Test
     fun `a network failure while searching surfaces a ShowError event`() =
         runTest(testDispatcher) {
-            placeSearchService.nextResult = Result.Error(PlaceSearchError.NETWORK_FAILED)
+            placeSearchService.result = Result.Error(PlaceSearchError.NETWORK_FAILED)
             val vm = viewModel()
 
             vm.events.test {
@@ -147,8 +148,8 @@ class DestinationSearchViewModelTest {
     @Test
     fun `selecting a result routes from the current location and loads it into RideTracker`() =
         runTest(testDispatcher) {
-            currentLocationProvider.nextResult = Result.Success(LocationFix(52.0, 21.0))
-            routingService.nextResult = Result.Success(PlannedRoute(name = null, points = emptyList(), waypoints = emptyList()))
+            currentLocationProvider.result = Result.Success(LocationFix(52.0, 21.0))
+            routingService.result = Result.Success(PlannedRoute(name = null, points = emptyList(), waypoints = emptyList()))
             val vm = viewModel()
             val selected = PlaceResult("Warsaw, Poland", 52.2297, 21.0122)
 
@@ -166,7 +167,7 @@ class DestinationSearchViewModelTest {
     @Test
     fun `a location failure while routing surfaces a ShowError event and never calls the routing service`() =
         runTest(testDispatcher) {
-            currentLocationProvider.nextResult = Result.Error(LocationError.TIMED_OUT)
+            currentLocationProvider.result = Result.Error(LocationError.TIMED_OUT)
             val vm = viewModel()
 
             vm.events.test {
@@ -180,7 +181,7 @@ class DestinationSearchViewModelTest {
     fun `a second result selection while routing is already in flight is ignored`() =
         runTest(testDispatcher) {
             val slowLocationProvider = SuspendingCurrentLocationProvider()
-            routingService.nextResult = Result.Success(PlannedRoute(name = null, points = emptyList(), waypoints = emptyList()))
+            routingService.result = Result.Success(PlannedRoute(name = null, points = emptyList(), waypoints = emptyList()))
             val vm = DestinationSearchViewModel(placeSearchService, routingService, slowLocationProvider, rideTracker)
             val selected = PlaceResult("Warsaw, Poland", 52.2297, 21.0122)
 
@@ -197,46 +198,6 @@ class DestinationSearchViewModelTest {
 
             assertThat(routingService.callCount).isEqualTo(1)
         }
-}
-
-private class FakePlaceSearchService : PlaceSearchService {
-    val queriesReceived = mutableListOf<String>()
-    var nextResult: Result<List<PlaceResult>, PlaceSearchError> = Result.Success(emptyList())
-
-    override suspend fun search(query: String): Result<List<PlaceResult>, PlaceSearchError> {
-        queriesReceived.add(query)
-        return nextResult
-    }
-}
-
-private data class RouteRequest(
-    val originLatitude: Double,
-    val originLongitude: Double,
-    val destinationLatitude: Double,
-    val destinationLongitude: Double,
-)
-
-private class FakeRoutingService : RoutingService {
-    var nextResult: Result<PlannedRoute, RoutingError> = Result.Error(RoutingError.NO_ROUTE_FOUND)
-    var lastRequest: RouteRequest? = null
-    var callCount = 0
-
-    override suspend fun route(
-        originLatitude: Double,
-        originLongitude: Double,
-        destinationLatitude: Double,
-        destinationLongitude: Double,
-    ): Result<PlannedRoute, RoutingError> {
-        callCount++
-        lastRequest = RouteRequest(originLatitude, originLongitude, destinationLatitude, destinationLongitude)
-        return nextResult
-    }
-}
-
-private class FakeCurrentLocationProvider : CurrentLocationProvider {
-    var nextResult: Result<LocationFix, LocationError> = Result.Error(LocationError.PROVIDER_UNAVAILABLE)
-
-    override suspend fun getCurrentLocation(): Result<LocationFix, LocationError> = nextResult
 }
 
 /**

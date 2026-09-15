@@ -6,10 +6,10 @@ import assertk.assertThat
 import assertk.assertions.contains
 import assertk.assertions.isGreaterThan
 import com.speedevand.inkride.core.domain.ble.BleSample
+import com.speedevand.inkride.core.testing.support.textOf
+import com.speedevand.inkride.core.testing.support.waitUntilTagText
 import com.speedevand.inkride.dashboard.presentation.DashboardTestTags
 import com.speedevand.inkride.tracking.support.RideSamples
-import com.speedevand.inkride.tracking.support.textOf
-import com.speedevand.inkride.tracking.support.waitUntilTagText
 import org.junit.Test
 
 /**

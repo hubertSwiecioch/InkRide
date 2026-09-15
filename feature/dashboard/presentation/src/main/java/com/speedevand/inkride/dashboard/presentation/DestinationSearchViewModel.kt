@@ -1,5 +1,6 @@
 package com.speedevand.inkride.dashboard.presentation
 
+import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.speedevand.inkride.core.domain.Result
@@ -118,8 +119,12 @@ class DestinationSearchViewModel(
         }
     }
 
-    private companion object {
+    companion object {
+        /** Exposed so an instrumented test can wait out the real debounce instead of guessing it. */
+        @VisibleForTesting
         const val SEARCH_DEBOUNCE_MS = 600L
+
+        @VisibleForTesting
         const val MIN_QUERY_LENGTH = 3
     }
 }

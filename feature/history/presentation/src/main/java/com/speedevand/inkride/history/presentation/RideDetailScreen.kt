@@ -28,10 +28,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -107,8 +109,8 @@ fun RideDetailScreen(
     state: RideDetailState,
     onAction: (RideDetailAction) -> Unit,
 ) {
-    var showConfirmDelete by remember { mutableStateOf(value = false) }
-    var showRouteMap by remember { mutableStateOf(value = false) }
+    var showConfirmDelete by rememberSaveable { mutableStateOf(value = false) }
+    var showRouteMap by rememberSaveable { mutableStateOf(value = false) }
 
     if (showRouteMap) {
         // The route map lives in a bottom sheet rather than inline: a MapView
@@ -123,6 +125,7 @@ fun RideDetailScreen(
                 modifier =
                     Modifier
                         .fillMaxWidth()
+                        .testTag(RideDetailTestTags.ROUTE_SHEET)
                         .padding(horizontal = 24.dp)
                         .padding(bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -137,6 +140,7 @@ fun RideDetailScreen(
                     modifier =
                         Modifier
                             .fillMaxWidth()
+                            .testTag(RideDetailTestTags.ROUTE_MAP)
                             .fillMaxHeight(0.85f),
                 )
             }
@@ -151,6 +155,7 @@ fun RideDetailScreen(
                 modifier =
                     Modifier
                         .fillMaxWidth()
+                        .testTag(RideDetailTestTags.CONFIRM_DELETE_DIALOG)
                         .padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -170,7 +175,7 @@ fun RideDetailScreen(
                 ) {
                     OutlinedButtonMMD(
                         onClick = { showConfirmDelete = false },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).testTag(RideDetailTestTags.CONFIRM_DELETE_CANCEL),
                     ) {
                         TextMMD(text = stringResource(R.string.history_action_cancel))
                     }
@@ -179,7 +184,7 @@ fun RideDetailScreen(
                             onAction(RideDetailAction.OnDeleteClick)
                             showConfirmDelete = false
                         },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).testTag(RideDetailTestTags.CONFIRM_DELETE_ACCEPT),
                     ) {
                         TextMMD(text = stringResource(R.string.history_action_delete))
                     }
@@ -199,7 +204,10 @@ fun RideDetailScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = { onAction(RideDetailAction.OnBackClick) }) {
+                    IconButton(
+                        onClick = { onAction(RideDetailAction.OnBackClick) },
+                        modifier = Modifier.testTag(RideDetailTestTags.BACK_BUTTON),
+                    ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.ride_detail_cd_back),
@@ -208,13 +216,19 @@ fun RideDetailScreen(
                 },
                 actions = {
                     if (state.ride != null) {
-                        IconButton(onClick = { onAction(RideDetailAction.OnExportGpxClick) }) {
+                        IconButton(
+                            onClick = { onAction(RideDetailAction.OnExportGpxClick) },
+                            modifier = Modifier.testTag(RideDetailTestTags.EXPORT_BUTTON),
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.Share,
                                 contentDescription = stringResource(R.string.ride_detail_cd_export),
                             )
                         }
-                        IconButton(onClick = { showConfirmDelete = true }) {
+                        IconButton(
+                            onClick = { showConfirmDelete = true },
+                            modifier = Modifier.testTag(RideDetailTestTags.DELETE_BUTTON),
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.Delete,
                                 contentDescription = stringResource(R.string.ride_detail_cd_delete),
@@ -238,7 +252,10 @@ fun RideDetailScreen(
                 verticalArrangement = Arrangement.Center,
             ) {
                 if (!state.isLoading) {
-                    TextMMD(text = stringResource(R.string.ride_detail_not_found))
+                    TextMMD(
+                        text = stringResource(R.string.ride_detail_not_found),
+                        modifier = Modifier.testTag(RideDetailTestTags.NOT_FOUND),
+                    )
                 }
             }
         } else {
@@ -252,25 +269,65 @@ fun RideDetailScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 RideDetailSection(title = stringResource(R.string.ride_detail_section_time)) {
-                    DetailRow(label = stringResource(R.string.ride_detail_start), value = ride.formattedDate)
-                    DetailRow(label = stringResource(R.string.ride_detail_end), value = ride.formattedEndDate)
-                    DetailRow(label = stringResource(R.string.ride_detail_moving_time), value = ride.movingTime)
-                    DetailRow(label = stringResource(R.string.ride_detail_session_time), value = ride.elapsedTime)
+                    DetailRow(
+                        key = RideDetailTestTags.START,
+                        label = stringResource(R.string.ride_detail_start),
+                        value = ride.formattedDate,
+                    )
+                    DetailRow(
+                        key = RideDetailTestTags.END,
+                        label = stringResource(R.string.ride_detail_end),
+                        value = ride.formattedEndDate,
+                    )
+                    DetailRow(
+                        key = RideDetailTestTags.MOVING_TIME,
+                        label = stringResource(R.string.ride_detail_moving_time),
+                        value = ride.movingTime,
+                    )
+                    DetailRow(
+                        key = RideDetailTestTags.ELAPSED_TIME,
+                        label = stringResource(R.string.ride_detail_session_time),
+                        value = ride.elapsedTime,
+                    )
                 }
 
                 RideDetailSection(title = stringResource(R.string.ride_detail_section_performance)) {
-                    DetailRow(label = stringResource(R.string.ride_detail_distance), value = ride.distanceKm)
-                    DetailRow(label = stringResource(R.string.ride_detail_avg_speed), value = ride.averageSpeedKmh)
-                    DetailRow(label = stringResource(R.string.ride_detail_max_speed), value = ride.maxSpeedKmh)
+                    DetailRow(
+                        key = RideDetailTestTags.DISTANCE,
+                        label = stringResource(R.string.ride_detail_distance),
+                        value = ride.distanceKm,
+                    )
+                    DetailRow(
+                        key = RideDetailTestTags.AVG_SPEED,
+                        label = stringResource(R.string.ride_detail_avg_speed),
+                        value = ride.averageSpeedKmh,
+                    )
+                    DetailRow(
+                        key = RideDetailTestTags.MAX_SPEED,
+                        label = stringResource(R.string.ride_detail_max_speed),
+                        value = ride.maxSpeedKmh,
+                    )
                 }
 
                 RideDetailSection(
                     title = stringResource(R.string.ride_detail_section_additional),
                     showDivider = state.elevationChart != null || state.trackPoints.isNotEmpty() || state.laps.isNotEmpty(),
                 ) {
-                    DetailRow(label = stringResource(R.string.ride_detail_elevation_gain), value = ride.elevationGainM)
-                    DetailRow(label = stringResource(R.string.ride_detail_calories), value = ride.caloriesKcal)
-                    DetailRow(label = stringResource(R.string.ride_detail_avg_power), value = ride.averagePowerWatts)
+                    DetailRow(
+                        key = RideDetailTestTags.ELEVATION_GAIN,
+                        label = stringResource(R.string.ride_detail_elevation_gain),
+                        value = ride.elevationGainM,
+                    )
+                    DetailRow(
+                        key = RideDetailTestTags.CALORIES,
+                        label = stringResource(R.string.ride_detail_calories),
+                        value = ride.caloriesKcal,
+                    )
+                    DetailRow(
+                        key = RideDetailTestTags.AVG_POWER,
+                        label = stringResource(R.string.ride_detail_avg_power),
+                        value = ride.averagePowerWatts,
+                    )
                 }
 
                 if (state.elevationChart != null) {
@@ -280,7 +337,10 @@ fun RideDetailScreen(
                     ) {
                         ElevationChart(
                             chart = state.elevationChart,
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .testTag(RideDetailTestTags.ELEVATION_CHART),
                         )
                     }
                 }
@@ -292,7 +352,7 @@ fun RideDetailScreen(
                     ) {
                         OutlinedButtonMMD(
                             onClick = { showRouteMap = true },
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth().testTag(RideDetailTestTags.SHOW_ROUTE_BUTTON),
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Map,
@@ -308,6 +368,7 @@ fun RideDetailScreen(
                     RideDetailSection(
                         title = stringResource(R.string.ride_detail_section_laps),
                         showDivider = false,
+                        modifier = Modifier.testTag(RideDetailTestTags.LAPS_SECTION),
                     ) {
                         LapHeaderRow()
                         state.laps.forEach { lap -> LapRow(lap) }
@@ -322,9 +383,10 @@ fun RideDetailScreen(
 private fun RideDetailSection(
     title: String,
     showDivider: Boolean = true,
+    modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         TextMMD(
             text = title,
             style = MaterialTheme.typography.titleMedium,
@@ -380,6 +442,7 @@ private fun LapRow(lap: RideLapUi) {
         modifier =
             Modifier
                 .fillMaxWidth()
+                .testTag(RideDetailTestTags.lapRow(lap.lapNumber.toInt()))
                 .padding(vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -397,6 +460,7 @@ private fun LapRow(lap: RideLapUi) {
 
 @Composable
 private fun DetailRow(
+    key: String,
     label: String,
     value: String,
 ) {
@@ -413,6 +477,7 @@ private fun DetailRow(
             text = value,
             style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.Bold,
+            modifier = Modifier.testTag(RideDetailTestTags.detail(key)),
         )
     }
 }

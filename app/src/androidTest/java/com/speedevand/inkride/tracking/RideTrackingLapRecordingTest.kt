@@ -6,11 +6,11 @@ import assertk.assertThat
 import assertk.assertions.isGreaterThan
 import assertk.assertions.isLessThan
 import assertk.assertions.startsWith
+import com.speedevand.inkride.core.testing.support.stringRes
+import com.speedevand.inkride.core.testing.support.textOf
+import com.speedevand.inkride.core.testing.support.waitUntilTagText
 import com.speedevand.inkride.dashboard.presentation.DashboardTestTags
 import com.speedevand.inkride.dashboard.presentation.R
-import com.speedevand.inkride.tracking.support.dashboardString
-import com.speedevand.inkride.tracking.support.textOf
-import com.speedevand.inkride.tracking.support.waitUntilTagText
 import org.junit.Test
 
 class RideTrackingLapRecordingTest : RideTrackingE2ETestBase() {
@@ -24,7 +24,7 @@ class RideTrackingLapRecordingTest : RideTrackingE2ETestBase() {
 
         composeTestRule.onNodeWithTag(DashboardTestTags.RECORD_LAP_BUTTON).performClick()
 
-        val lastLapPrefix = dashboardString(R.string.dashboard_last_lap).substringBefore("%1\$s").trim()
+        val lastLapPrefix = stringRes(R.string.dashboard_last_lap).substringBefore("%1\$s").trim()
         composeTestRule.waitUntilTagText(DashboardTestTags.LAST_LAP_STATUS) { it.startsWith(lastLapPrefix) }
         val lapText = composeTestRule.textOf(DashboardTestTags.LAST_LAP_STATUS)
         assertThat(lapText).startsWith(lastLapPrefix)

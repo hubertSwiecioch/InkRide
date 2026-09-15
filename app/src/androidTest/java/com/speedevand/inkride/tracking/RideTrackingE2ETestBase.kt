@@ -11,14 +11,16 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.GrantPermissionRule
 import com.speedevand.inkride.MainActivity
+import com.speedevand.inkride.ble.data.bleDataModule
 import com.speedevand.inkride.core.domain.ble.BleSensorDataSource
 import com.speedevand.inkride.core.domain.settings.UserSettings
 import com.speedevand.inkride.core.domain.settings.UserSettingsRepository
 import com.speedevand.inkride.core.domain.tracking.RideSensorDataSource
 import com.speedevand.inkride.core.domain.tracking.RideTracker
+import com.speedevand.inkride.core.testing.fakes.FakeBleSensorDataSource
+import com.speedevand.inkride.core.testing.fakes.FakeRideSensorDataSource
 import com.speedevand.inkride.dashboard.presentation.DashboardTestTags
-import com.speedevand.inkride.tracking.fakes.FakeBleSensorDataSource
-import com.speedevand.inkride.tracking.fakes.FakeRideSensorDataSource
+import com.speedevand.inkride.tracking.data.trackingDataModule
 import com.speedevand.inkride.tracking.service.TrackingService
 import com.speedevand.inkride.tracking.support.RideSamples
 import kotlinx.coroutines.runBlocking
@@ -76,7 +78,8 @@ abstract class RideTrackingE2ETestBase {
             single { RideTracker(get(), get(), get(), get(), get(), get(), get()) }
         }
 
-    private var scenario: ActivityScenario<MainActivity>? = null
+    protected var scenario: ActivityScenario<MainActivity>? = null
+        private set
 
     /**
      * Every metric-visibility toggle defaults to on in [UserSettings]; this
@@ -110,7 +113,13 @@ abstract class RideTrackingE2ETestBase {
             Intent(context, TrackingService::class.java).setAction(TrackingService.ACTION_STOP),
         )
         scenario?.close()
+        // Unloading only removes the overrides — it does not put the production
+        // definitions they shadowed back, so the graph would be left without a
+        // RideSensorDataSource/BleSensorDataSource/RideTracker and every later
+        // test class that resolves DashboardViewModel would fail. Re-load the
+        // two production modules that own them.
         unloadKoinModules(listOf(testModule))
+        loadKoinModules(listOf(trackingDataModule, bleDataModule))
     }
 
     // Monotonically increasing across a single test's lifetime (a fresh
@@ -126,6 +135,12 @@ abstract class RideTrackingE2ETestBase {
         // Let RideTracker's settings collector pick up the seeded UserSettings
         // before the first sample is processed.
         Thread.sleep(300L)
+    }
+
+    /** Rebuilds the activity the way a configuration change does. */
+    protected fun recreateActivity() {
+        scenario?.recreate()
+        composeTestRule.waitForIdle()
     }
 
     protected fun feedMovingSteps(

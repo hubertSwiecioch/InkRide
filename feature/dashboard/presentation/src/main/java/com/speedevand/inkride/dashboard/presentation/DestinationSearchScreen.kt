@@ -20,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mudita.mmd.components.text.TextMMD
@@ -68,7 +69,10 @@ fun DestinationSearchScreen(
             TopAppBarMMD(
                 title = { TextMMD(text = stringResource(R.string.destination_search_title)) },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                    IconButton(
+                        onClick = onNavigateBack,
+                        modifier = Modifier.testTag(DestinationSearchTestTags.BACK_BUTTON),
+                    ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.destination_search_back),
@@ -89,7 +93,7 @@ fun DestinationSearchScreen(
             TextFieldMMD(
                 value = state.query,
                 onValueChange = { onAction(DestinationSearchAction.OnQueryChanged(it)) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag(DestinationSearchTestTags.QUERY_FIELD),
                 singleLine = true,
                 placeholder = { TextMMD(text = stringResource(R.string.destination_search_hint)) },
             )
@@ -99,6 +103,7 @@ fun DestinationSearchScreen(
                     TextMMD(
                         text = stringResource(R.string.destination_search_searching),
                         style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.testTag(DestinationSearchTestTags.SEARCH_PROGRESS),
                     )
                 }
 
@@ -106,6 +111,7 @@ fun DestinationSearchScreen(
                     TextMMD(
                         text = stringResource(R.string.destination_search_routing),
                         style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.testTag(DestinationSearchTestTags.ROUTING_PROGRESS),
                     )
                 }
 
@@ -113,6 +119,7 @@ fun DestinationSearchScreen(
                     TextMMD(
                         text = stringResource(R.string.destination_search_error_no_results),
                         style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.testTag(DestinationSearchTestTags.EMPTY_STATE),
                     )
                 }
             }
@@ -122,12 +129,14 @@ fun DestinationSearchScreen(
                 modifier =
                     Modifier
                         .fillMaxSize()
+                        .testTag(DestinationSearchTestTags.RESULT_LIST)
                         .verticalScroll(scrollState)
                         .verticalScrollbar(scrollState),
                 verticalArrangement = Arrangement.spacedBy(DesignConstants.PADDING_SMALL),
             ) {
-                state.results.forEach { result ->
+                state.results.forEachIndexed { index, result ->
                     DestinationResultRow(
+                        index = index,
                         result = result,
                         enabled = !state.isRouting,
                         onClick = { onAction(DestinationSearchAction.OnResultSelected(result)) },
@@ -140,6 +149,7 @@ fun DestinationSearchScreen(
 
 @Composable
 private fun DestinationResultRow(
+    index: Int,
     result: PlaceResult,
     enabled: Boolean,
     onClick: () -> Unit,
@@ -150,6 +160,7 @@ private fun DestinationResultRow(
         modifier =
             Modifier
                 .fillMaxWidth()
+                .testTag(DestinationSearchTestTags.resultRow(index))
                 .clickable(enabled = enabled, onClick = onClick)
                 .padding(vertical = DesignConstants.PADDING_SMALL),
     )

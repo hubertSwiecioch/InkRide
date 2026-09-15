@@ -10,10 +10,10 @@ import com.speedevand.inkride.core.domain.settings.AlertConfig
 import com.speedevand.inkride.core.domain.settings.UserSettings
 import com.speedevand.inkride.core.domain.tracking.RideAlert
 import com.speedevand.inkride.core.domain.tracking.RideTracker
+import com.speedevand.inkride.core.testing.support.stringRes
+import com.speedevand.inkride.core.testing.support.waitUntilTagText
 import com.speedevand.inkride.dashboard.presentation.DashboardTestTags
 import com.speedevand.inkride.dashboard.presentation.R
-import com.speedevand.inkride.tracking.support.dashboardString
-import com.speedevand.inkride.tracking.support.waitUntilTagText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -41,7 +41,7 @@ class RideTrackingGoalAndAlertTest : RideTrackingE2ETestBase() {
         feedMovingSteps(count = 15)
 
         composeTestRule.waitUntilTagText(DashboardTestTags.GOAL_STATUS, timeoutMillis = 20_000L) {
-            it == dashboardString(R.string.dashboard_goal_reached)
+            it == stringRes(R.string.dashboard_goal_reached)
         }
     }
 

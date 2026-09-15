@@ -35,7 +35,9 @@ jobs:
   instrumented-tests:
     needs: build-and-test
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Six test APKs (:app, four :feature:*:presentation modules, :core:database)
+    # rather than one, so install and Gradle overhead grew.
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -50,7 +52,7 @@ jobs:
           sudo udevadm trigger --name-match=kvm
 
       - name: Assemble debug androidTest APKs
-        run: ./gradlew assembleDebugAndroidTest --no-daemon
+        run: ./gradlew assembleDebugAndroidTest --no-daemon --parallel
 
       - name: Cache AVD
         uses: actions/cache@v4

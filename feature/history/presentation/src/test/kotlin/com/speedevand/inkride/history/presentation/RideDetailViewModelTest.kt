@@ -8,18 +8,15 @@ import assertk.assertions.isInstanceOf
 import assertk.assertions.isNotNull
 import assertk.assertions.isNull
 import com.speedevand.inkride.core.domain.DataError
-import com.speedevand.inkride.core.domain.EmptyResult
 import com.speedevand.inkride.core.domain.Result
-import com.speedevand.inkride.core.domain.history.RideHistoryRepository
 import com.speedevand.inkride.core.domain.history.RideRecord
 import com.speedevand.inkride.core.domain.history.RideTrackPoint
-import com.speedevand.inkride.core.domain.history.RideTrackPointRepository
-import com.speedevand.inkride.core.domain.settings.UserSettings
-import com.speedevand.inkride.core.domain.settings.UserSettingsRepository
+import com.speedevand.inkride.core.testing.fakes.FakeRideHistoryRepository
+import com.speedevand.inkride.core.testing.fakes.FakeRideLapRepository
+import com.speedevand.inkride.core.testing.fakes.FakeRideTrackPointRepository
+import com.speedevand.inkride.core.testing.fakes.FakeUserSettingsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -64,7 +61,7 @@ class RideDetailViewModelTest {
     @Test
     fun `load by ID success populates state`() =
         runTest {
-            rideRepo.setRide(sampleRide)
+            rideRepo.emitRides(listOf(sampleRide))
             val viewModel = RideDetailViewModel(1L, rideRepo, lapRepo, trackPointRepo, settingsRepo, gpxExporter)
 
             assertThat(viewModel.state.value.ride).isNotNull()
@@ -84,7 +81,7 @@ class RideDetailViewModelTest {
     @Test
     fun `back click navigates back`() =
         runTest {
-            rideRepo.setRide(sampleRide)
+            rideRepo.emitRides(listOf(sampleRide))
             val viewModel = RideDetailViewModel(1L, rideRepo, lapRepo, trackPointRepo, settingsRepo, gpxExporter)
 
             viewModel.events.test {
@@ -97,7 +94,7 @@ class RideDetailViewModelTest {
     @Test
     fun `delete click deletes and navigates back`() =
         runTest {
-            rideRepo.setRide(sampleRide)
+            rideRepo.emitRides(listOf(sampleRide))
             val viewModel = RideDetailViewModel(1L, rideRepo, lapRepo, trackPointRepo, settingsRepo, gpxExporter)
 
             viewModel.events.test {
@@ -110,7 +107,7 @@ class RideDetailViewModelTest {
     @Test
     fun `export with no track shows error`() =
         runTest {
-            rideRepo.setRide(sampleRide)
+            rideRepo.emitRides(listOf(sampleRide))
             gpxExporter.result = Result.Error(GpxExportError.NO_TRACK)
             val viewModel = RideDetailViewModel(1L, rideRepo, lapRepo, trackPointRepo, settingsRepo, gpxExporter)
 
@@ -124,12 +121,14 @@ class RideDetailViewModelTest {
     @Test
     fun `track points populate route state`() =
         runTest {
-            rideRepo.setRide(sampleRide)
-            trackPointRepo.points =
+            rideRepo.emitRides(listOf(sampleRide))
+            trackPointRepo.setPoints(
+                1L,
                 listOf(
                     RideTrackPoint(timestampMs = 0L, latitude = 52.1, longitude = 21.0),
                     RideTrackPoint(timestampMs = 1000L, latitude = 52.2, longitude = 21.1),
-                )
+                ),
+            )
             val viewModel = RideDetailViewModel(1L, rideRepo, lapRepo, trackPointRepo, settingsRepo, gpxExporter)
 
             assertThat(viewModel.state.value.trackPoints).isEqualTo(
@@ -140,12 +139,14 @@ class RideDetailViewModelTest {
     @Test
     fun `track points with altitude populate the elevation chart`() =
         runTest {
-            rideRepo.setRide(sampleRide)
-            trackPointRepo.points =
+            rideRepo.emitRides(listOf(sampleRide))
+            trackPointRepo.setPoints(
+                1L,
                 listOf(
                     RideTrackPoint(timestampMs = 0L, latitude = 52.0, longitude = 21.0, altitudeM = 100.0),
                     RideTrackPoint(timestampMs = 1000L, latitude = 52.01, longitude = 21.0, altitudeM = 150.0),
-                )
+                ),
+            )
             val viewModel = RideDetailViewModel(1L, rideRepo, lapRepo, trackPointRepo, settingsRepo, gpxExporter)
 
             assertThat(viewModel.state.value.elevationChart).isNotNull()
@@ -154,12 +155,14 @@ class RideDetailViewModelTest {
     @Test
     fun `track points without altitude are still loaded for the route map, but leave the elevation chart null`() =
         runTest {
-            rideRepo.setRide(sampleRide)
-            trackPointRepo.points =
+            rideRepo.emitRides(listOf(sampleRide))
+            trackPointRepo.setPoints(
+                1L,
                 listOf(
                     RideTrackPoint(timestampMs = 0L, latitude = 52.0, longitude = 21.0),
                     RideTrackPoint(timestampMs = 1000L, latitude = 52.01, longitude = 21.0),
-                )
+                ),
+            )
             val viewModel = RideDetailViewModel(1L, rideRepo, lapRepo, trackPointRepo, settingsRepo, gpxExporter)
 
             assertThat(viewModel.state.value.trackPoints).isEqualTo(
@@ -168,58 +171,9 @@ class RideDetailViewModelTest {
             assertThat(viewModel.state.value.elevationChart).isNull()
         }
 
-    class FakeRideHistoryRepository : RideHistoryRepository {
-        private var ride: RideRecord? = null
-        var getByIdResult: Result<RideRecord, DataError.Local> = Result.Error(DataError.Local.NOT_FOUND)
-
-        fun setRide(ride: RideRecord) {
-            this.ride = ride
-            getByIdResult = Result.Success(ride)
-        }
-
-        override fun observeAll(): Flow<List<RideRecord>> = flowOf(emptyList())
-
-        override suspend fun getById(id: Long) = getByIdResult
-
-        override suspend fun save(ride: RideRecord) = Result.Success(ride.id)
-
-        override suspend fun deleteById(id: Long) = Result.Success(Unit)
-
-        override suspend fun deleteAll() = Result.Success(Unit)
-    }
-
-    class FakeUserSettingsRepository : UserSettingsRepository {
-        override fun observeSettings(): Flow<UserSettings> = flowOf(UserSettings(weightKg = 75, age = 30))
-
-        override suspend fun save(settings: UserSettings) = Result.Success(Unit)
-    }
-
-    class FakeRideTrackPointRepository : RideTrackPointRepository {
-        var points: List<RideTrackPoint> = emptyList()
-
-        override suspend fun savePoints(
-            rideId: Long,
-            points: List<RideTrackPoint>,
-        ): EmptyResult<DataError.Local> = Result.Success(Unit)
-
-        override suspend fun getPoints(rideId: Long): Result<List<RideTrackPoint>, DataError.Local> = Result.Success(points)
-    }
-
     class FakeGpxExporter : GpxExporter {
         var result: Result<Uri, GpxExportError> = Result.Error(GpxExportError.NO_TRACK)
 
         override suspend fun export(rideId: Long): Result<Uri, GpxExportError> = result
-    }
-
-    class FakeRideLapRepository : com.speedevand.inkride.core.domain.history.RideLapRepository {
-        override suspend fun saveLaps(
-            rideId: Long,
-            laps: List<com.speedevand.inkride.core.domain.tracking.LapRecord>,
-        ) = Result.Success(Unit)
-
-        override suspend fun getLaps(rideId: Long) =
-            Result.Success(
-                emptyList<com.speedevand.inkride.core.domain.tracking.LapRecord>(),
-            )
     }
 }

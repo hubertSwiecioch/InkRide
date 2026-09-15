@@ -26,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -99,7 +100,10 @@ fun BleSensorsScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = { onAction(BleSensorsAction.OnBackClick) }) {
+                    IconButton(
+                        onClick = { onAction(BleSensorsAction.OnBackClick) },
+                        modifier = Modifier.testTag(BleSensorsTestTags.BACK_BUTTON),
+                    ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.ble_cd_back),
@@ -163,8 +167,12 @@ private fun SensorSection(
                 TextMMD(
                     text = stringResource(R.string.ble_paired_to, pairedAddress),
                     style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.testTag(BleSensorsTestTags.pairedLabel(type)),
                 )
-                OutlinedButtonMMD(onClick = { onAction(BleSensorsAction.OnForgetClick(type)) }) {
+                OutlinedButtonMMD(
+                    onClick = { onAction(BleSensorsAction.OnForgetClick(type)) },
+                    modifier = Modifier.testTag(BleSensorsTestTags.forgetButton(type)),
+                ) {
                     TextMMD(text = stringResource(R.string.ble_action_forget))
                 }
             }
@@ -173,13 +181,14 @@ private fun SensorSection(
                 text = stringResource(R.string.ble_none_paired),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.outline,
+                modifier = Modifier.testTag(BleSensorsTestTags.nonePairedLabel(type)),
             )
         }
 
         if (isScanning) {
             ButtonMMD(
                 onClick = { onAction(BleSensorsAction.OnStopScanClick) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag(BleSensorsTestTags.stopScanButton(type)),
             ) {
                 TextMMD(text = stringResource(R.string.ble_action_stop_scan))
             }
@@ -188,6 +197,7 @@ private fun SensorSection(
                     text = stringResource(R.string.ble_scanning),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.testTag(BleSensorsTestTags.scanningLabel(type)),
                 )
             } else {
                 state.discovered.forEach { device ->
@@ -197,7 +207,7 @@ private fun SensorSection(
         } else {
             OutlinedButtonMMD(
                 onClick = { onAction(BleSensorsAction.OnScanClick(type)) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag(BleSensorsTestTags.scanButton(type)),
             ) {
                 TextMMD(text = stringResource(R.string.ble_action_scan))
             }
@@ -214,6 +224,7 @@ private fun DiscoveredDeviceRow(
         modifier =
             Modifier
                 .fillMaxWidth()
+                .testTag(BleSensorsTestTags.deviceRow(device.address))
                 .clickable(onClick = onClick)
                 .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,

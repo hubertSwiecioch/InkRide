@@ -22,11 +22,11 @@ import com.speedevand.inkride.core.domain.tracking.RoutePoint
 import com.speedevand.inkride.core.domain.tracking.RouteWaypoint
 import com.speedevand.inkride.core.domain.tracking.RoutingError
 import com.speedevand.inkride.core.domain.tracking.RoutingService
+import com.speedevand.inkride.core.testing.support.stringRes
+import com.speedevand.inkride.core.testing.support.textOf
+import com.speedevand.inkride.core.testing.support.waitUntilTagContentDescription
 import com.speedevand.inkride.dashboard.presentation.DashboardTestTags
 import com.speedevand.inkride.dashboard.presentation.R
-import com.speedevand.inkride.tracking.support.dashboardString
-import com.speedevand.inkride.tracking.support.textOf
-import com.speedevand.inkride.tracking.support.waitUntilTagContentDescription
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -92,9 +92,9 @@ class RideTrackingRouteSearchTest : RideTrackingE2ETestBase() {
                 ),
             )
 
-        composeTestRule.onNodeWithContentDescription(dashboardString(R.string.dashboard_route_load)).performClick()
-        composeTestRule.onNodeWithText(dashboardString(R.string.dashboard_route_search_destination)).performClick()
-        composeTestRule.onNodeWithText(dashboardString(R.string.destination_search_hint)).performTextInput("Corner")
+        composeTestRule.onNodeWithContentDescription(stringRes(R.string.dashboard_route_load)).performClick()
+        composeTestRule.onNodeWithText(stringRes(R.string.dashboard_route_search_destination)).performClick()
+        composeTestRule.onNodeWithText(stringRes(R.string.destination_search_hint)).performTextInput("Corner")
 
         // Real 600ms debounce in DestinationSearchViewModel, plus the fakes'
         // effectively-instant resolution -- poll for the actual result to
@@ -113,7 +113,7 @@ class RideTrackingRouteSearchTest : RideTrackingE2ETestBase() {
         feedEastboundSteps(count = 5, speedKmh = 20.0)
 
         composeTestRule.waitUntilTagContentDescription(DashboardTestTags.ROUTE_NEXT_TURN_ICON) {
-            it == dashboardString(R.string.dashboard_route_turn_right)
+            it == stringRes(R.string.dashboard_route_turn_right)
         }
         assertThat(composeTestRule.textOf(DashboardTestTags.ROUTE_NEXT_TURN_TEXT)).contains("Corner")
     }

@@ -11,13 +11,13 @@ import assertk.assertions.isLessThan
 import assertk.assertions.isNotEqualTo
 import com.speedevand.inkride.core.domain.ble.BleSample
 import com.speedevand.inkride.core.domain.history.RideHistoryRepository
+import com.speedevand.inkride.core.testing.support.textOf
+import com.speedevand.inkride.core.testing.support.waitUntilTagText
 import com.speedevand.inkride.dashboard.presentation.DashboardConstants
 import com.speedevand.inkride.dashboard.presentation.DashboardTestTags
 import com.speedevand.inkride.tracking.support.RideSamples
 import com.speedevand.inkride.tracking.support.swipeMetricsPagerToNextPage
 import com.speedevand.inkride.tracking.support.swipeMetricsPagerToPreviousPage
-import com.speedevand.inkride.tracking.support.textOf
-import com.speedevand.inkride.tracking.support.waitUntilTagText
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
