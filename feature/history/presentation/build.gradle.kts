@@ -18,4 +18,7 @@ dependencies {
     implementation(libs.osmdroid.android)
 
     testImplementation(project(":core:testing"))
+
+    // Stubs the share chooser so the GPX export test never launches it.
+    androidTestImplementation(libs.androidx.espresso.intents)
 }
