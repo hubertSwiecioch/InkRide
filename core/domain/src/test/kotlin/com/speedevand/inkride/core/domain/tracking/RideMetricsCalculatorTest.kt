@@ -6,6 +6,7 @@ import assertk.assertions.isFalse
 import assertk.assertions.isGreaterThan
 import assertk.assertions.isLessThan
 import assertk.assertions.isNotNull
+import assertk.assertions.isNull
 import assertk.assertions.isTrue
 import assertk.assertions.isZero
 import com.speedevand.inkride.core.domain.settings.UserSettings
@@ -77,6 +78,24 @@ class RideMetricsCalculatorTest {
         assertThat(justInsideWindow.isSpeedStale).isFalse()
         assertThat(pastWindow.currentSpeedKmh).isEqualTo(0.0)
         assertThat(pastWindow.isSpeedStale).isTrue()
+    }
+
+    @Test
+    fun `bearing survives more than one consecutive sample without a heading`() {
+        val calculator = RideMetricsCalculator()
+        val settings = UserSettings(weightKg = 75, age = 30)
+
+        calculator.process(
+            RideSensorSample(timestampMs = 0L, latitude = 52.0, longitude = 0.0, bearingDegrees = 90f, accuracyM = 4.0f),
+            settings,
+        )
+
+        calculator.process(RideSensorSample(timestampMs = 500L, altitudeFromBarometerM = 100.0), settings)
+        val second = calculator.process(RideSensorSample(timestampMs = 1_000L, altitudeFromBarometerM = 100.0), settings)
+        val pastWindow = calculator.process(RideSensorSample(timestampMs = 9_000L, altitudeFromBarometerM = 100.0), settings)
+
+        assertThat(second.bearingDegrees).isEqualTo(90f)
+        assertThat(pastWindow.bearingDegrees).isNull()
     }
 
     @Test

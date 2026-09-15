@@ -367,6 +367,35 @@ class RideSampleAssemblerTest {
     }
 
     @Test
+    fun `bearing falls back to the Kalman velocity heading when GPS course is untrustworthy`() {
+        val assembler = RideSampleAssembler()
+
+        // Seed the filter with two northbound fixes so it builds a velocity estimate.
+        assembler.assemble(
+            rawFix = RawGpsFix(52.0, 0.0, accuracyM = 4f, fixTimeMs = 1_000L, speedMps = 1.0f),
+            pressureHpa = null,
+            altitudeFromBarometerM = null,
+            smoothedHeadingDeg = null,
+            nowMs = 1_000L,
+        )
+        val sample =
+            assembler.assemble(
+                // speedMps below gpsBearingMinSpeedMps, so GPS course-over-ground is
+                // rejected; no compass heading either. The Kalman velocity bearing
+                // is the only source left and must be used.
+                rawFix = RawGpsFix(52.00018, 0.0, accuracyM = 4f, fixTimeMs = 2_000L, speedMps = 1.0f, bearingDeg = 270f),
+                pressureHpa = null,
+                altitudeFromBarometerM = null,
+                smoothedHeadingDeg = null,
+                nowMs = 2_000L,
+            )
+
+        assertThat(sample.bearingDegrees).isNotNull()
+        // Travelling due north: bearing near 0/360, definitely not the rejected 270.
+        assertThat(sample.bearingDegrees!!).isLessThan(45f)
+    }
+
+    @Test
     fun `cached Kalman result is suppressed on a null fix but reused when the same fix reappears`() {
         val assembler = RideSampleAssembler()
         val fix = RawGpsFix(latitude = 50.0, longitude = 19.0, accuracyM = 5.0f, fixTimeMs = 1_000L)

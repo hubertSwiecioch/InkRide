@@ -53,6 +53,10 @@ class RideMetricsCalculator(
     // How long the last GPS-derived speed stays valid on samples that carry no
     // position. Past this, the readout decays to zero instead of freezing.
     private val speedValidityMs: Long = 3_000L,
+    // How long the last known bearing stays on screen without a fresh reading.
+    // Longer than speedValidityMs: a stale compass needle is far less misleading
+    // than a stale speed, and blanking it on every brief gap makes it unusable.
+    private val bearingValidityMs: Long = 5_000L,
 ) {
     private var sessionStartMs: Long? = null
     private var lastSample: RideSensorSample? = null
@@ -74,6 +78,8 @@ class RideMetricsCalculator(
     // Timestamp of the most recent sample that carried a position, used to age
     // out lastReportedSpeedMps.
     private var lastLocationSampleAtMs: Long? = null
+    private var lastKnownBearingDeg: Float? = null
+    private var lastKnownBearingAtMs: Long? = null
     private var currentPowerWatts: Int = 0
 
     // Time-weighted average power over MOVING time. Sample emission is irregular
@@ -131,6 +137,8 @@ class RideMetricsCalculator(
         lastSpeedMps = 0.0
         lastReportedSpeedMps = 0.0
         lastLocationSampleAtMs = null
+        lastKnownBearingDeg = null
+        lastKnownBearingAtMs = null
         currentPowerWatts = 0
         powerWeightedSumWattMs = 0.0
         powerDurationMs = 0L
@@ -160,6 +168,15 @@ class RideMetricsCalculator(
         sample.pressureHpa?.let { weatherTrendCalculator.add(sample.timestampMs, it) }
         val weatherTrend = weatherTrendCalculator.trend()
 
+        sample.bearingDegrees?.let {
+            lastKnownBearingDeg = it
+            lastKnownBearingAtMs = sample.timestampMs
+        }
+        val resolvedBearing =
+            lastKnownBearingAtMs
+                ?.takeIf { sample.timestampMs - it <= bearingValidityMs }
+                ?.let { lastKnownBearingDeg }
+
         if (previous == null) {
             val rawAlt = fusedAltitude(sample, dtMs = 0L)
             smoothedAltitudeM = rawAlt
@@ -173,7 +190,7 @@ class RideMetricsCalculator(
                 altitudeM = smoothedAltitudeM,
                 elapsedTimeSeconds = 0L,
                 gpsAccuracyM = sample.accuracyM,
-                bearingDegrees = sample.bearingDegrees,
+                bearingDegrees = resolvedBearing,
                 weatherTrend = weatherTrend,
             )
         }
@@ -581,7 +598,7 @@ class RideMetricsCalculator(
             powerWatts = currentPowerWatts,
             averagePowerWatts = avgPower,
             gpsAccuracyM = sample.accuracyM,
-            bearingDegrees = sample.bearingDegrees ?: previous.bearingDegrees,
+            bearingDegrees = resolvedBearing,
             gpsQuality = quality,
             isMoving = isActuallyMoving,
             isSpeedStale = isSpeedStale,

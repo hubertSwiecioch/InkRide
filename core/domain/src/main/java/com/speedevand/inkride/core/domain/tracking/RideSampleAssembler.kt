@@ -35,6 +35,10 @@ data class RawGpsFix(
  */
 class RideSampleAssembler(
     private val gpsBearingMinSpeedMps: Float = 2.0f,
+    // Below this the filter's velocity estimate is mostly noise and its bearing
+    // would spin; above it, it is a better heading than a magnetometer sitting
+    // inside a steel bike frame.
+    private val kalmanBearingMinSpeedMps: Double = 0.5,
     private val positionKalmanFilter: PositionKalmanFilter = PositionKalmanFilter(),
 ) {
     private var lastKalmanFedFixTimeMs: Long? = null
@@ -53,8 +57,12 @@ class RideSampleAssembler(
             rawFix
                 ?.takeIf { it.speedMps != null && it.speedMps >= gpsBearingMinSpeedMps }
                 ?.bearingDeg
+        val kalmanBearing =
+            filteredPosition
+                ?.takeIf { it.speedMps > kalmanBearingMinSpeedMps }
+                ?.bearingDegrees
         val bearing =
-            (gpsBearing ?: smoothedHeadingDeg)
+            (gpsBearing ?: kalmanBearing ?: smoothedHeadingDeg)
                 ?.takeIf { it.isFinite() }
                 ?.let { ((it % 360f) + 360f) % 360f }
 
