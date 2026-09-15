@@ -224,15 +224,17 @@ class AndroidRideSensorDataSource(
         }
 
         try {
-            // GPS: 1-second intervals with 2.0m minimum distance.
-            // At 30 km/h (8.3 m/s), this gives ~1 update every 4m of travel,
-            // which is appropriate for cycling accuracy needs.
-            // The 0.5m minimum was overly aggressive and could cause excessive
-            // callbacks on devices with higher GPS update rates.
+            // 1-second interval, no minimum distance. The hardware distance gate
+            // duplicated — and starved — the calculator's own, richer stationary
+            // protection (5-sample counter, 2 movement confirmations, threshold
+            // scaled by reported accuracy), which cannot run without samples.
+            // A stationary bike must keep receiving fixes so auto-pause engages,
+            // the GPS-quality readout stays live, and the elevation baseline can
+            // re-anchor. 1 Hz while stopped is what a dedicated bike computer does.
             locationManager.requestLocationUpdates(
                 LocationManager.GPS_PROVIDER,
                 1_000L,
-                2.0f,
+                0f,
                 localLocationListener,
                 callbackHandler.looper,
             )
