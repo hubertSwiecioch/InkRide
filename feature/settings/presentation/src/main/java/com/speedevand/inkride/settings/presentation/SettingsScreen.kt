@@ -21,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -131,6 +132,7 @@ fun SettingsScreen(
                     TabMMD(
                         selected = state.selectedTab == tab,
                         onClick = { onAction(SettingsAction.OnTabSelected(tab)) },
+                        modifier = Modifier.testTag(SettingsTestTags.tab(tab)),
                         text = {
                             TextMMD(
                                 text =
@@ -180,6 +182,7 @@ private fun ProfileSection(
         SectionHeader(stringResource(R.string.settings_section_personal))
 
         NumberStepperRow(
+            key = SettingsTestTags.WEIGHT,
             label = stringResource(R.string.settings_label_weight),
             value = state.userSettingsUi.weightKg,
             unit = weightUnit,
@@ -190,6 +193,7 @@ private fun ProfileSection(
         )
 
         NumberStepperRow(
+            key = SettingsTestTags.AGE,
             label = stringResource(R.string.settings_label_age),
             value = state.userSettingsUi.age,
             unit = stringResource(R.string.settings_unit_years),
@@ -207,6 +211,7 @@ private fun ProfileSection(
             "pl" to R.string.settings_language_polish,
         ).forEach { (code, labelRes) ->
             SettingRadioRow(
+                key = code,
                 label = stringResource(labelRes),
                 selected = state.currentLanguageCode.startsWith(code),
                 onClick = { onAction(SettingsAction.OnLanguageChange(code)) },
@@ -231,6 +236,7 @@ private fun BikeSection(
         SectionHeader(stringResource(R.string.settings_section_bike))
 
         SettingNavRow(
+            key = SettingsTestTags.BIKE_PROFILES,
             label = stringResource(R.string.settings_bike_profiles),
             actionLabel = stringResource(R.string.settings_bike_profiles_open),
             onClick = { onAction(SettingsAction.OnBikeProfilesClick) },
@@ -241,6 +247,7 @@ private fun BikeSection(
             SectionHeader(stringResource(R.string.settings_section_default_bike))
 
             NumberStepperRow(
+                key = SettingsTestTags.BIKE_WEIGHT,
                 label = stringResource(R.string.settings_label_bike_weight),
                 value = state.userSettingsUi.bikeWeightKg,
                 unit = weightUnit,
@@ -260,6 +267,7 @@ private fun BikeSection(
 
             BikeType.entries.forEach { type ->
                 SettingRadioRow(
+                    key = type.name,
                     label = stringResource(type.labelRes()),
                     selected = state.userSettings.bikeType == type,
                     onClick = { onAction(SettingsAction.OnBikeTypeChange(type)) },
@@ -271,6 +279,7 @@ private fun BikeSection(
         SectionHeader(stringResource(R.string.settings_section_sensors))
 
         SettingNavRow(
+            key = SettingsTestTags.BLE_SENSORS,
             label = stringResource(R.string.settings_bluetooth_sensors),
             actionLabel = stringResource(R.string.settings_bluetooth_sensors_open),
             onClick = { onAction(SettingsAction.OnBluetoothSensorsClick) },
@@ -290,6 +299,7 @@ private fun DisplaySection(
 
         MeasurementUnits.entries.forEach { unit ->
             SettingRadioRow(
+                key = unit.name,
                 label =
                     when (unit) {
                         MeasurementUnits.METRIC -> stringResource(R.string.settings_units_metric)
@@ -304,51 +314,61 @@ private fun DisplaySection(
         SectionHeader(stringResource(R.string.settings_section_metrics))
 
         DashboardSettingRow(
+            key = "show_distance",
             label = stringResource(R.string.settings_show_distance),
             checked = state.userSettings.showDistance,
             onCheckedChange = { onAction(SettingsAction.OnUserSettingsChanged(state.userSettings.copy(showDistance = it))) },
         )
         DashboardSettingRow(
+            key = "show_moving_time",
             label = stringResource(R.string.settings_show_moving_time),
             checked = state.userSettings.showMovingTime,
             onCheckedChange = { onAction(SettingsAction.OnUserSettingsChanged(state.userSettings.copy(showMovingTime = it))) },
         )
         DashboardSettingRow(
+            key = "show_average_speed",
             label = stringResource(R.string.settings_show_average_speed),
             checked = state.userSettings.showAverageSpeed,
             onCheckedChange = { onAction(SettingsAction.OnUserSettingsChanged(state.userSettings.copy(showAverageSpeed = it))) },
         )
         DashboardSettingRow(
+            key = "show_max_speed",
             label = stringResource(R.string.settings_show_max_speed),
             checked = state.userSettings.showMaxSpeed,
             onCheckedChange = { onAction(SettingsAction.OnUserSettingsChanged(state.userSettings.copy(showMaxSpeed = it))) },
         )
         DashboardSettingRow(
+            key = "show_elevation_gain",
             label = stringResource(R.string.settings_show_elevation_gain),
             checked = state.userSettings.showElevationGain,
             onCheckedChange = { onAction(SettingsAction.OnUserSettingsChanged(state.userSettings.copy(showElevationGain = it))) },
         )
         DashboardSettingRow(
+            key = "show_calories",
             label = stringResource(R.string.settings_show_calories),
             checked = state.userSettings.showCalories,
             onCheckedChange = { onAction(SettingsAction.OnUserSettingsChanged(state.userSettings.copy(showCalories = it))) },
         )
         DashboardSettingRow(
+            key = "show_altitude",
             label = stringResource(R.string.settings_show_altitude),
             checked = state.userSettings.showAltitude,
             onCheckedChange = { onAction(SettingsAction.OnUserSettingsChanged(state.userSettings.copy(showAltitude = it))) },
         )
         DashboardSettingRow(
+            key = "show_grade",
             label = stringResource(R.string.settings_show_grade),
             checked = state.userSettings.showGrade,
             onCheckedChange = { onAction(SettingsAction.OnUserSettingsChanged(state.userSettings.copy(showGrade = it))) },
         )
         DashboardSettingRow(
+            key = "show_power",
             label = stringResource(R.string.settings_show_power),
             checked = state.userSettings.showPower,
             onCheckedChange = { onAction(SettingsAction.OnUserSettingsChanged(state.userSettings.copy(showPower = it))) },
         )
         DashboardSettingRow(
+            key = "show_compass",
             label = stringResource(R.string.settings_show_compass),
             checked = state.userSettings.showCompass,
             onCheckedChange = { onAction(SettingsAction.OnUserSettingsChanged(state.userSettings.copy(showCompass = it))) },
@@ -358,6 +378,7 @@ private fun DisplaySection(
         SectionHeader(stringResource(R.string.settings_section_behavior))
 
         DashboardSettingRow(
+            key = SettingsTestTags.KEEP_SCREEN_ON,
             label = stringResource(R.string.settings_keep_screen_on),
             checked = state.userSettings.keepScreenOn,
             onCheckedChange = { onAction(SettingsAction.OnUserSettingsChanged(state.userSettings.copy(keepScreenOn = it))) },
@@ -384,6 +405,7 @@ private fun AlertsSection(
     SectionHeader(stringResource(R.string.settings_section_alerts))
 
     AlertSwitchRow(
+        key = SettingsTestTags.ALERT_MAX_SPEED,
         label = stringResource(R.string.settings_alert_max_speed),
         enabled = state.userSettings.alerts.maxSpeedKmh != null,
         value = state.userSettingsUi.maxSpeedAlert,
@@ -396,6 +418,7 @@ private fun AlertsSection(
     )
 
     AlertSwitchRow(
+        key = SettingsTestTags.ALERT_HR_MIN,
         label = stringResource(R.string.settings_alert_hr_min),
         enabled = state.userSettings.alerts.hrZoneMinBpm != null,
         value = state.userSettingsUi.hrMinAlert,
@@ -408,6 +431,7 @@ private fun AlertsSection(
     )
 
     AlertSwitchRow(
+        key = SettingsTestTags.ALERT_HR_MAX,
         label = stringResource(R.string.settings_alert_hr_max),
         enabled = state.userSettings.alerts.hrZoneMaxBpm != null,
         value = state.userSettingsUi.hrMaxAlert,
@@ -439,6 +463,7 @@ private fun SectionDivider() {
 
 @Composable
 private fun SettingNavRow(
+    key: String,
     label: String,
     actionLabel: String,
     onClick: () -> Unit,
@@ -447,6 +472,7 @@ private fun SettingNavRow(
         modifier =
             Modifier
                 .fillMaxWidth()
+                .testTag(SettingsTestTags.navRow(key))
                 .clickable(onClick = onClick)
                 .heightIn(min = 52.dp)
                 .padding(vertical = 8.dp),
@@ -464,6 +490,7 @@ private fun SettingNavRow(
 
 @Composable
 private fun SettingRadioRow(
+    key: String,
     label: String,
     selected: Boolean,
     onClick: () -> Unit,
@@ -472,6 +499,7 @@ private fun SettingRadioRow(
         modifier =
             Modifier
                 .fillMaxWidth()
+                .testTag(SettingsTestTags.radio(key))
                 .clickable(onClick = onClick)
                 .heightIn(min = 52.dp)
                 .padding(vertical = 4.dp),
@@ -485,6 +513,7 @@ private fun SettingRadioRow(
 
 @Composable
 private fun DashboardSettingRow(
+    key: String,
     label: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
@@ -505,12 +534,17 @@ private fun DashboardSettingRow(
                     .weight(1f)
                     .padding(end = 12.dp),
         )
-        SwitchMMD(checked = checked, onCheckedChange = onCheckedChange)
+        SwitchMMD(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            modifier = Modifier.testTag(SettingsTestTags.switch(key)),
+        )
     }
 }
 
 @Composable
 private fun NumberStepperRow(
+    key: String,
     label: String,
     value: String,
     unit: String,
@@ -541,6 +575,7 @@ private fun NumberStepperRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             OutlinedButtonMMD(
+                modifier = Modifier.testTag(SettingsTestTags.stepperMinus(key)),
                 onClick = {
                     val current = numeric ?: min
                     val next = (current - step).coerceIn(min, max)
@@ -558,8 +593,10 @@ private fun NumberStepperRow(
             TextMMD(
                 text = "$value $unit",
                 style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.testTag(SettingsTestTags.stepperValue(key)),
             )
             OutlinedButtonMMD(
+                modifier = Modifier.testTag(SettingsTestTags.stepperPlus(key)),
                 onClick = {
                     val current = numeric ?: (min - step)
                     val next = (current + step).coerceIn(min, max)
@@ -580,6 +617,7 @@ private fun NumberStepperRow(
 
 @Composable
 private fun AlertSwitchRow(
+    key: String,
     label: String,
     enabled: Boolean,
     value: String,
@@ -607,7 +645,11 @@ private fun AlertSwitchRow(
                         .weight(1f)
                         .padding(end = 12.dp),
             )
-            SwitchMMD(checked = enabled, onCheckedChange = onToggle)
+            SwitchMMD(
+                checked = enabled,
+                onCheckedChange = onToggle,
+                modifier = Modifier.testTag(SettingsTestTags.switch(key)),
+            )
         }
         if (enabled) {
             Row(
@@ -615,7 +657,7 @@ private fun AlertSwitchRow(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                OutlinedButtonMMD(onClick = {
+                OutlinedButtonMMD(modifier = Modifier.testTag(SettingsTestTags.stepperMinus(key)), onClick = {
                     val current = value.toDoubleOrNull() ?: min
                     val next = (current - step).coerceIn(min, max)
                     onStepChange(String.format(Locale.ROOT, "%.0f", next))
@@ -625,8 +667,9 @@ private fun AlertSwitchRow(
                 TextMMD(
                     text = "$value $unit",
                     style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.testTag(SettingsTestTags.stepperValue(key)),
                 )
-                OutlinedButtonMMD(onClick = {
+                OutlinedButtonMMD(modifier = Modifier.testTag(SettingsTestTags.stepperPlus(key)), onClick = {
                     val current = value.toDoubleOrNull() ?: (min - step)
                     val next = (current + step).coerceIn(min, max)
                     onStepChange(String.format(Locale.ROOT, "%.0f", next))
