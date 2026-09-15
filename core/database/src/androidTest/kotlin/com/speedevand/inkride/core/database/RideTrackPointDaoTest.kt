@@ -39,17 +39,32 @@ class RideTrackPointDaoTest : DatabaseTestBase() {
         runTest {
             val rideId = db.rideHistoryDao().insert(TestEntities.ride())
 
-            dao.insertAll(
-                listOf(
-                    TestEntities
-                        .trackPoint(rideId, timestampMs = TestEntities.START_MS)
-                        .copy(altitudeM = null, accuracyM = null),
-                ),
-            )
+            // Two points: one with both nullable columns null, one with distinct
+            // non-null values. A DAO/entity change that made altitudeM/accuracyM
+            // always read back null would still pass if only the null point were
+            // checked, so the non-null point closes that gap.
+            val withNulls =
+                TestEntities
+                    .trackPoint(rideId, timestampMs = TestEntities.START_MS)
+                    .copy(altitudeM = null, accuracyM = null)
+            val withValues =
+                TestEntities
+                    .trackPoint(rideId, timestampMs = TestEntities.START_MS + 1_000L)
+                    .copy(altitudeM = 612.4, accuracyM = 4.2f)
 
-            val stored = dao.getForRide(rideId).single()
-            assertThat(stored.altitudeM).isEqualTo(null)
-            assertThat(stored.accuracyM).isEqualTo(null)
+            dao.insertAll(listOf(withNulls, withValues))
+
+            val stored = dao.getForRide(rideId)
+            val storedNulls = stored.single { it.timestampMs == TestEntities.START_MS }
+            val storedValues = stored.single { it.timestampMs == TestEntities.START_MS + 1_000L }
+
+            assertThat(storedNulls.altitudeM).isEqualTo(null)
+            assertThat(storedNulls.accuracyM).isEqualTo(null)
+            assertThat(storedValues.altitudeM).isEqualTo(612.4)
+            assertThat(storedValues.accuracyM).isEqualTo(4.2f)
+            // Whole-entity comparison: also catches a latitude/longitude
+            // transposition, which no other test in this suite would notice.
+            assertThat(storedValues).isEqualTo(withValues.copy(id = storedValues.id))
         }
 
     @Test

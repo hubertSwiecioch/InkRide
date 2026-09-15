@@ -79,15 +79,18 @@ object TestEntities {
             bikeType = "ROAD",
             languageCode = "en",
             units = "METRIC",
+            // A mix of true/false, not all-true: with every show* column set to the
+            // same value, a transposition among them (e.g. showDistance and
+            // showPower swapped in the entity) would still pass every test.
             showDistance = true,
-            showMovingTime = true,
+            showMovingTime = false,
             showAverageSpeed = true,
-            showMaxSpeed = true,
+            showMaxSpeed = false,
             showElevationGain = true,
-            showCalories = true,
+            showCalories = false,
             showAltitude = true,
-            showGrade = true,
+            showGrade = false,
             showCompass = true,
-            showPower = true,
+            showPower = false,
         )
 }

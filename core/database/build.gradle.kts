@@ -5,12 +5,6 @@ plugins {
 
 android {
     namespace = "com.speedevand.inkride.core.database"
-
-    sourceSets {
-        getByName("androidTest") {
-            assets.srcDirs("$projectDir/schemas")
-        }
-    }
 }
 
 dependencies {

@@ -5,6 +5,7 @@ import assertk.assertThat
 import assertk.assertions.containsExactly
 import assertk.assertions.hasSize
 import assertk.assertions.isEmpty
+import assertk.assertions.isEqualTo
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -68,6 +69,18 @@ class RideLapDaoTest : DatabaseTestBase() {
             db.rideHistoryDao().deleteAll()
 
             assertThat(dao.getForRide(rideId)).isEmpty()
+        }
+
+    @Test
+    fun insertingALapRoundTripsEveryColumn() =
+        runTest {
+            val rideId = db.rideHistoryDao().insert(TestEntities.ride())
+            val lap = TestEntities.lap(rideId, lapNumber = 1)
+
+            dao.insertAll(listOf(lap))
+
+            val stored = dao.getForRide(rideId).single()
+            assertThat(stored).isEqualTo(lap.copy(id = stored.id))
         }
 
     @Test

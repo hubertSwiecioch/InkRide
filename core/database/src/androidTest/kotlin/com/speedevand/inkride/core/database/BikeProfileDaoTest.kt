@@ -18,13 +18,17 @@ class BikeProfileDaoTest : DatabaseTestBase() {
     @Test
     fun upsertWithZeroIdInsertsAndReturnsTheGeneratedId() =
         runTest {
-            val id = dao.upsert(TestEntities.bikeProfile(name = "Road bike"))
+            val inserted = TestEntities.bikeProfile(name = "Road bike")
+            val id = dao.upsert(inserted)
 
             assertThat(id).isGreaterThan(0L)
             dao.observeAll().test {
                 val stored = awaitItem().single()
                 assertThat(stored.id).isEqualTo(id)
                 assertThat(stored.name).isEqualTo("Road bike")
+                // Whole-entity comparison: catches a transposition between, e.g.,
+                // weightKg and any other column.
+                assertThat(stored).isEqualTo(inserted.copy(id = id))
                 cancelAndIgnoreRemainingEvents()
             }
         }

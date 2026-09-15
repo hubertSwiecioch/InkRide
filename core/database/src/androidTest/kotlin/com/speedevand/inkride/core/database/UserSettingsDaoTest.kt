@@ -27,15 +27,21 @@ class UserSettingsDaoTest : DatabaseTestBase() {
     @Test
     fun upsertWritesTheSingletonRowAndObserveEmitsIt() =
         runTest {
+            val inserted = TestEntities.userSettings(weightKg = 82, age = 41)
+
             dao.observe().test {
                 assertThat(awaitItem()).isNull()
 
-                dao.upsert(TestEntities.userSettings(weightKg = 82, age = 41))
+                dao.upsert(inserted)
 
                 val stored = awaitItem()
                 assertThat(stored).isNotNull()
                 assertThat(stored?.weightKg).isEqualTo(82)
                 assertThat(stored?.age).isEqualTo(41)
+                // Whole-entity comparison: catches a transposition among the
+                // show* columns (or any other column), which no assertion in
+                // this suite otherwise checks.
+                assertThat(stored).isEqualTo(inserted)
                 cancelAndIgnoreRemainingEvents()
             }
         }

@@ -19,12 +19,17 @@ class RideHistoryDaoTest : DatabaseTestBase() {
     @Test
     fun insertReturnsGeneratedIdAndGetByIdReadsTheRowBack() =
         runTest {
-            val id = dao.insert(TestEntities.ride(distanceKm = 12.5))
+            val inserted = TestEntities.ride(distanceKm = 12.5)
+            val id = dao.insert(inserted)
 
             val stored = dao.getById(id)
 
             assertThat(stored?.id).isEqualTo(id)
             assertThat(stored?.distanceKm).isEqualTo(12.5)
+            // Whole-entity comparison: catches a transposition among any of the
+            // other columns (e.g. averageSpeedKmh/maxSpeedKmh swapped) that the
+            // single-field assertion above would miss.
+            assertThat(stored).isEqualTo(inserted.copy(id = id))
         }
 
     @Test
@@ -36,9 +41,14 @@ class RideHistoryDaoTest : DatabaseTestBase() {
     @Test
     fun observeAllEmitsNewestRideFirst() =
         runTest {
-            val olderId = dao.insert(TestEntities.ride(startTimestamp = TestEntities.START_MS))
+            // Insert the newer ride first, so insertion order, id order and
+            // startTimestamp order all disagree. With id order and timestamp
+            // order correlated, `containsExactly(newerId, olderId)` would be
+            // equally satisfied by `ORDER BY id DESC`, which is not what the
+            // real query (`ORDER BY startTimestamp DESC`) does.
             val newerId =
                 dao.insert(TestEntities.ride(startTimestamp = TestEntities.START_MS + 86_400_000L))
+            val olderId = dao.insert(TestEntities.ride(startTimestamp = TestEntities.START_MS))
 
             dao.observeAll().test {
                 assertThat(awaitItem().map { it.id }).containsExactly(newerId, olderId)
@@ -128,7 +138,10 @@ class RideHistoryDaoTest : DatabaseTestBase() {
                 val stats = awaitItem()
                 assertThat(stats.totalRides).isEqualTo(0)
                 assertThat(stats.totalDistanceKm).isCloseTo(0.0, 0.001)
+                assertThat(stats.totalMovingTimeSeconds).isEqualTo(0L)
+                assertThat(stats.totalElevationGainM).isCloseTo(0.0, 0.001)
                 assertThat(stats.maxSpeedKmh).isCloseTo(0.0, 0.001)
+                assertThat(stats.totalCaloriesKcal).isCloseTo(0.0, 0.001)
                 cancelAndIgnoreRemainingEvents()
             }
         }
