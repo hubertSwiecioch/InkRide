@@ -28,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -107,8 +108,8 @@ fun RideDetailScreen(
     state: RideDetailState,
     onAction: (RideDetailAction) -> Unit,
 ) {
-    var showConfirmDelete by remember { mutableStateOf(value = false) }
-    var showRouteMap by remember { mutableStateOf(value = false) }
+    var showConfirmDelete by rememberSaveable { mutableStateOf(value = false) }
+    var showRouteMap by rememberSaveable { mutableStateOf(value = false) }
 
     if (showRouteMap) {
         // The route map lives in a bottom sheet rather than inline: a MapView
