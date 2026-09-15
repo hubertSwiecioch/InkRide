@@ -50,6 +50,9 @@ class RideMetricsCalculator(
     // window we trust whatever fixes arrive — the brief cold-start suppression
     // is bounded, and movement is recorded for the rest of the ride.
     private val warmupMaxDurationMs: Long = 10_000L,
+    // How long the last GPS-derived speed stays valid on samples that carry no
+    // position. Past this, the readout decays to zero instead of freezing.
+    private val speedValidityMs: Long = 3_000L,
 ) {
     private var sessionStartMs: Long? = null
     private var lastSample: RideSensorSample? = null
@@ -67,6 +70,10 @@ class RideMetricsCalculator(
     // (barometer/heading) so the speedometer doesn't flicker to 0 between the
     // ~1 Hz GPS fixes — important on slow-refresh E-Ink displays.
     private var lastReportedSpeedMps: Double = 0.0
+
+    // Timestamp of the most recent sample that carried a position, used to age
+    // out lastReportedSpeedMps.
+    private var lastLocationSampleAtMs: Long? = null
     private var currentPowerWatts: Int = 0
 
     // Time-weighted average power over MOVING time. Sample emission is irregular
@@ -123,6 +130,7 @@ class RideMetricsCalculator(
         caloriesKcal = 0.0
         lastSpeedMps = 0.0
         lastReportedSpeedMps = 0.0
+        lastLocationSampleAtMs = null
         currentPowerWatts = 0
         powerWeightedSumWattMs = 0.0
         powerDurationMs = 0L
@@ -180,6 +188,15 @@ class RideMetricsCalculator(
 
         // Default outputs carried over from the last GPS-derived state so that
         // intermediate non-location samples don't reset the live readout.
+        // A position-less sample (barometer/heading) carries the last GPS-derived
+        // speed forward so the E-Ink readout doesn't flicker to 0 between the
+        // ~1 Hz fixes — but only for speedValidityMs. Past that the fix is gone,
+        // not merely late, and a frozen number would both lie to the rider and
+        // keep auto-pause from ever engaging.
+        val isSpeedStale =
+            !isLocationSample &&
+                lastLocationSampleAtMs?.let { sample.timestampMs - it > speedValidityMs } == true
+        if (isSpeedStale) lastReportedSpeedMps = 0.0
         var speedMps = lastReportedSpeedMps
         var isActuallyMoving = false
 
@@ -196,6 +213,7 @@ class RideMetricsCalculator(
         var locationOutlierRejected = false
 
         if (isLocationSample) {
+            lastLocationSampleAtMs = sample.timestampMs
             // Use lastLocationSample so position deltas match the actual fix
             // interval, not the arbitrary (faster) sensor sample interval.
             val (segmentDistanceM, locationDtMs) =
@@ -565,6 +583,7 @@ class RideMetricsCalculator(
             bearingDegrees = sample.bearingDegrees ?: previous.bearingDegrees,
             gpsQuality = quality,
             isMoving = isActuallyMoving,
+            isSpeedStale = isSpeedStale,
             weatherTrend = weatherTrend,
         )
     }

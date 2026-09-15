@@ -2,6 +2,7 @@ package com.speedevand.inkride.core.domain.tracking
 
 import assertk.assertThat
 import assertk.assertions.isEqualTo
+import assertk.assertions.isFalse
 import assertk.assertions.isGreaterThan
 import assertk.assertions.isLessThan
 import assertk.assertions.isNotNull
@@ -16,6 +17,40 @@ class RideMetricsCalculatorTest {
     // warm-up gate itself is covered in its own section below.
     private val calculator = RideMetricsCalculator(warmupReliableFixes = 1)
     private val settings = UserSettings(weightKg = 75, age = 32)
+
+    @Test
+    fun `speed decays to zero and is flagged stale after the GPS fix window lapses`() {
+        val calculator = RideMetricsCalculator()
+        val settings = UserSettings(weightKg = 75, age = 30)
+
+        calculator.process(
+            RideSensorSample(timestampMs = 0L, latitude = 52.0, longitude = 0.0, speedFromGpsMps = 8.0, accuracyM = 4.0f),
+            settings,
+        )
+        repeat(4) { step ->
+            calculator.process(
+                RideSensorSample(
+                    timestampMs = 1_000L * (step + 1),
+                    latitude = 52.0 + 0.000072 * (step + 1),
+                    longitude = 0.0,
+                    speedFromGpsMps = 8.0,
+                    accuracyM = 4.0f,
+                ),
+                settings,
+            )
+        }
+
+        // Barometer-only samples: no position, so nothing refreshes the speed.
+        val justInsideWindow =
+            calculator.process(RideSensorSample(timestampMs = 6_500L, altitudeFromBarometerM = 100.0), settings)
+        val pastWindow =
+            calculator.process(RideSensorSample(timestampMs = 9_000L, altitudeFromBarometerM = 100.0), settings)
+
+        assertThat(justInsideWindow.currentSpeedKmh).isGreaterThan(0.0)
+        assertThat(justInsideWindow.isSpeedStale).isFalse()
+        assertThat(pastWindow.currentSpeedKmh).isEqualTo(0.0)
+        assertThat(pastWindow.isSpeedStale).isTrue()
+    }
 
     @Test
     fun `first sample initializes session start`() {

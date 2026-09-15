@@ -28,6 +28,10 @@ data class RideMetrics(
     // with the calculator whenever displacement confirmed movement that the
     // Doppler speed did not.
     val isMoving: Boolean = false,
+    // True when no GPS fix has arrived recently enough to trust the speed
+    // readout. The UI shows "--" rather than a frozen number: during a dropout
+    // (tunnel, dense cover) the last known speed is not evidence of anything.
+    val isSpeedStale: Boolean = false,
     // Live values from paired BLE sensors; null when no sensor is connected.
     val heartRateBpm: Int? = null,
     val cadenceRpm: Int? = null,
