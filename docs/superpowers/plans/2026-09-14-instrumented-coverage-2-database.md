@@ -958,7 +958,7 @@ A failure of the form "Migration didn't properly handle …" means the migration
 - [ ] **Step 4: Run the whole module's instrumented suite**
 
 Run: `./gradlew :core:database:connectedDebugAndroidTest`
-Expected: PASS, 28 tests across six classes.
+Expected: PASS, 29 tests across six classes.
 
 - [ ] **Step 5: Confirm the Robolectric suite still passes**
 
@@ -977,7 +977,7 @@ git commit -m "test: add instrumented 6->7 migration test"
 
 ## Done when
 
-- `./gradlew :core:database:connectedDebugAndroidTest` is green — 28 tests.
+- `./gradlew :core:database:connectedDebugAndroidTest` is green — 29 tests.
 - `./gradlew :core:database:testDebugUnitTest` is green and unchanged.
 - Every DAO method in all five DAOs is exercised by at least one instrumented test.
 - `./gradlew ktlintCheck` is green.
