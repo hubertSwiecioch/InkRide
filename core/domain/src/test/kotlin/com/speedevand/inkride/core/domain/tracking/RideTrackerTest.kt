@@ -7,6 +7,7 @@ import assertk.assertions.isEqualTo
 import assertk.assertions.isFalse
 import assertk.assertions.isGreaterThan
 import assertk.assertions.isInstanceOf
+import assertk.assertions.isLessThan
 import assertk.assertions.isNull
 import assertk.assertions.isTrue
 import com.speedevand.inkride.core.domain.DataError
@@ -119,6 +120,35 @@ class RideTrackerTest {
 
             // Moving again: auto-resume.
             sensor.samples.emit(sampleAt(5500L, latitude = 0.0002, longitude = 0.0, speedFromGpsMps = 8.0, accuracy = 5.0f))
+            assertThat(tracker.state.value.status).isEqualTo(TrackingStatus.TRACKING)
+        }
+
+    @Test
+    fun `auto-pause does not engage while the calculator still reports movement`() =
+        runTest {
+            val sensor = FakeSensorDataSource()
+            val tracker = newTracker(testScheduler, sensor, autoPauseDelayMs = 2_000L)
+
+            tracker.start()
+            // A crawl: ~8 m of displacement per 1 s fix at a tight 4 m accuracy
+            // confirms movement, but the Doppler speed stays near zero the whole
+            // time so currentSpeedKmh never clears autoPauseSpeedKmh (1.5). Before
+            // the isMoving contract this silently auto-paused mid-climb once the
+            // sample timestamps crossed autoPauseDelayMs.
+            sensor.samples.emit(sampleAt(0L, latitude = 52.0, longitude = 0.0, speedFromGpsMps = 0.2, accuracy = 4.0f))
+            repeat(4) { step ->
+                sensor.samples.emit(
+                    sampleAt(
+                        1_000L * (step + 1),
+                        latitude = 52.0 + 0.000072 * (step + 1),
+                        longitude = 0.0,
+                        speedFromGpsMps = 0.2,
+                        accuracy = 4.0f,
+                    ),
+                )
+            }
+
+            assertThat(tracker.state.value.metrics.currentSpeedKmh).isLessThan(1.5)
             assertThat(tracker.state.value.status).isEqualTo(TrackingStatus.TRACKING)
         }
 

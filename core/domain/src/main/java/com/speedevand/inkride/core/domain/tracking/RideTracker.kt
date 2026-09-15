@@ -393,7 +393,13 @@ class RideTracker(
                                 userSettings = latestSettings,
                                 isPaused = isPaused,
                             )
-                        val autoStatus = evaluateAutoPause(statusBefore, baseMetrics.currentSpeedKmh, sample.timestampMs)
+                        val autoStatus =
+                            evaluateAutoPause(
+                                statusBefore,
+                                baseMetrics.isMoving,
+                                baseMetrics.currentSpeedKmh,
+                                sample.timestampMs,
+                            )
                         // Recompute route-follow progress from this fix; carry the
                         // previous value forward on a fix-less sample so the readout
                         // doesn't flicker between GPS updates.
@@ -445,12 +451,13 @@ class RideTracker(
      */
     private fun evaluateAutoPause(
         current: TrackingStatus,
+        isMoving: Boolean,
         speedKmh: Double,
         nowMs: Long,
     ): TrackingStatus =
         when (current) {
             TrackingStatus.TRACKING -> {
-                if (speedKmh < autoPauseSpeedKmh) {
+                if (!isMoving) {
                     val since = lowSpeedSinceMs ?: nowMs.also { lowSpeedSinceMs = it }
                     if (nowMs - since >= autoPauseDelayMs) {
                         lowSpeedSinceMs = null
@@ -464,8 +471,10 @@ class RideTracker(
                 }
             }
 
+            // Resume keeps its own, higher threshold: hysteresis lives here so
+            // speed wobble at a stop can't flip the state back and forth.
             TrackingStatus.AUTO_PAUSED -> {
-                if (speedKmh > autoResumeSpeedKmh) TrackingStatus.TRACKING else current
+                if (isMoving && speedKmh > autoResumeSpeedKmh) TrackingStatus.TRACKING else current
             }
 
             else -> {

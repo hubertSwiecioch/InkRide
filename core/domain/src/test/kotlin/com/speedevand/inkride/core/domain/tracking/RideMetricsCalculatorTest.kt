@@ -5,6 +5,7 @@ import assertk.assertions.isEqualTo
 import assertk.assertions.isGreaterThan
 import assertk.assertions.isLessThan
 import assertk.assertions.isNotNull
+import assertk.assertions.isTrue
 import assertk.assertions.isZero
 import com.speedevand.inkride.core.domain.settings.UserSettings
 import org.junit.jupiter.api.Test
@@ -909,6 +910,36 @@ class RideMetricsCalculatorTest {
         // Distance accumulates via the significant-movement path once warmed up,
         // rather than staying frozen at zero for the whole ride.
         assertThat(metrics.distanceKm).isGreaterThan(0.0)
+    }
+
+    @Test
+    fun `isMoving is true when displacement confirms movement despite a low Doppler speed`() {
+        val calculator = RideMetricsCalculator()
+        val settings = UserSettings(weightKg = 75, age = 30)
+
+        // Two fixes 8 m apart over 1 s with a tight accuracy: displacement is far
+        // above the accuracy-scaled threshold, so the rider is unambiguously moving
+        // even though the chipset reports a near-zero Doppler speed.
+        calculator.process(
+            RideSensorSample(timestampMs = 0L, latitude = 52.0, longitude = 0.0, speedFromGpsMps = 0.2, accuracyM = 4.0f),
+            settings,
+        )
+        var metrics = RideMetrics()
+        repeat(4) { step ->
+            metrics =
+                calculator.process(
+                    RideSensorSample(
+                        timestampMs = 1_000L * (step + 1),
+                        latitude = 52.0 + 0.000072 * (step + 1),
+                        longitude = 0.0,
+                        speedFromGpsMps = 0.2,
+                        accuracyM = 4.0f,
+                    ),
+                    settings,
+                )
+        }
+
+        assertThat(metrics.isMoving).isTrue()
     }
 
     private fun baroSampleAt(

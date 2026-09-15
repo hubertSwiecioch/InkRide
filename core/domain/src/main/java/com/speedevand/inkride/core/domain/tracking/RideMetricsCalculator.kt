@@ -564,6 +564,7 @@ class RideMetricsCalculator(
             gpsAccuracyM = sample.accuracyM,
             bearingDegrees = sample.bearingDegrees ?: previous.bearingDegrees,
             gpsQuality = quality,
+            isMoving = isActuallyMoving,
             weatherTrend = weatherTrend,
         )
     }
