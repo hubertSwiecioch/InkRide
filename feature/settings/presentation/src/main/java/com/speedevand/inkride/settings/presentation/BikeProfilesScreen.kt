@@ -23,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -80,7 +81,10 @@ fun BikeProfilesScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = { onAction(BikeProfilesAction.OnBackClick) }) {
+                    IconButton(
+                        onClick = { onAction(BikeProfilesAction.OnBackClick) },
+                        modifier = Modifier.testTag(BikeProfilesTestTags.BACK_BUTTON),
+                    ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.bike_profiles_cd_back),
@@ -104,6 +108,7 @@ fun BikeProfilesScreen(
                     text = stringResource(R.string.bike_profiles_empty),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.testTag(BikeProfilesTestTags.EMPTY_STATE),
                 )
             }
 
@@ -115,7 +120,10 @@ fun BikeProfilesScreen(
             if (state.isEditing) {
                 ProfileEditor(state = state, onAction = onAction)
             } else {
-                ButtonMMD(onClick = { onAction(BikeProfilesAction.OnAddNew) }) {
+                ButtonMMD(
+                    onClick = { onAction(BikeProfilesAction.OnAddNew) },
+                    modifier = Modifier.testTag(BikeProfilesTestTags.ADD_BUTTON),
+                ) {
                     TextMMD(text = stringResource(R.string.bike_profiles_add))
                 }
             }
@@ -133,6 +141,7 @@ private fun ProfileRow(
         modifier =
             Modifier
                 .fillMaxWidth()
+                .testTag(BikeProfilesTestTags.row(profile.id))
                 .clickable { onAction(BikeProfilesAction.OnSetActive(profile.id)) }
                 .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -141,6 +150,7 @@ private fun ProfileRow(
         RadioButtonMMD(
             selected = profile.isActive,
             onClick = { onAction(BikeProfilesAction.OnSetActive(profile.id)) },
+            modifier = Modifier.testTag(BikeProfilesTestTags.activeRadio(profile.id)),
         )
         Column(modifier = Modifier.weight(1f)) {
             TextMMD(
@@ -154,10 +164,16 @@ private fun ProfileRow(
                 color = MaterialTheme.colorScheme.outline,
             )
         }
-        OutlinedButtonMMD(onClick = { onAction(BikeProfilesAction.OnEdit(profile.id)) }) {
+        OutlinedButtonMMD(
+            onClick = { onAction(BikeProfilesAction.OnEdit(profile.id)) },
+            modifier = Modifier.testTag(BikeProfilesTestTags.editButton(profile.id)),
+        ) {
             TextMMD(text = stringResource(R.string.bike_profiles_edit))
         }
-        OutlinedButtonMMD(onClick = { onAction(BikeProfilesAction.OnDelete(profile.id)) }) {
+        OutlinedButtonMMD(
+            onClick = { onAction(BikeProfilesAction.OnDelete(profile.id)) },
+            modifier = Modifier.testTag(BikeProfilesTestTags.deleteButton(profile.id)),
+        ) {
             TextMMD(text = stringResource(R.string.bike_profiles_delete))
         }
     }
@@ -183,7 +199,7 @@ private fun ProfileEditor(
             onValueChange = { onAction(BikeProfilesAction.OnNameChange(it)) },
             label = { TextMMD(stringResource(R.string.bike_profiles_name)) },
             isError = state.draftNameError,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag(BikeProfilesTestTags.NAME_FIELD),
             singleLine = true,
         )
 
@@ -193,7 +209,7 @@ private fun ProfileEditor(
             label = { TextMMD(stringResource(R.string.bike_profiles_weight)) },
             suffix = { TextMMD(text = state.weightUnit, modifier = Modifier.padding(end = 4.dp)) },
             isError = state.draftWeightError,
-            modifier = Modifier.fillMaxWidth(0.5f),
+            modifier = Modifier.fillMaxWidth(0.5f).testTag(BikeProfilesTestTags.WEIGHT_FIELD),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             singleLine = true,
         )
@@ -212,15 +228,22 @@ private fun ProfileEditor(
                 RadioButtonMMD(
                     selected = state.draftType == type,
                     onClick = { onAction(BikeProfilesAction.OnTypeChange(type)) },
+                    modifier = Modifier.testTag(BikeProfilesTestTags.typeRadio(type)),
                 )
             }
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ButtonMMD(onClick = { onAction(BikeProfilesAction.OnSaveDraft) }) {
+            ButtonMMD(
+                onClick = { onAction(BikeProfilesAction.OnSaveDraft) },
+                modifier = Modifier.testTag(BikeProfilesTestTags.SAVE_BUTTON),
+            ) {
                 TextMMD(text = stringResource(R.string.bike_profiles_save))
             }
-            OutlinedButtonMMD(onClick = { onAction(BikeProfilesAction.OnCancelDraft) }) {
+            OutlinedButtonMMD(
+                onClick = { onAction(BikeProfilesAction.OnCancelDraft) },
+                modifier = Modifier.testTag(BikeProfilesTestTags.CANCEL_BUTTON),
+            ) {
                 TextMMD(text = stringResource(R.string.bike_profiles_cancel))
             }
         }
