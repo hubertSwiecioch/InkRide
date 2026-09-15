@@ -53,6 +53,33 @@ class RideMetricsCalculatorTest {
     }
 
     @Test
+    fun `speed staleness anchors on first-sample location even with no subsequent fixes`() {
+        // Regression test: when the very first sample carries a position and GPS
+        // then drops before a second fix arrives (e.g. acquired in a garage,
+        // lost on the way out), lastLocationSampleAtMs must still be set so
+        // staleness anchoring works. Speed stays 0 here because the warm-up gate
+        // has not been satisfied by a single fix — that is the intended behaviour.
+        val calculator = RideMetricsCalculator()
+        val settings = UserSettings(weightKg = 75, age = 30)
+
+        // Single location sample at time 0.
+        calculator.process(
+            RideSensorSample(timestampMs = 0L, latitude = 52.0, longitude = 0.0, speedFromGpsMps = 8.0, accuracyM = 4.0f),
+            settings,
+        )
+
+        // No more location samples — GPS is lost. Only barometer-only samples follow.
+        val justInsideWindow =
+            calculator.process(RideSensorSample(timestampMs = 1_500L, altitudeFromBarometerM = 100.0), settings)
+        val pastWindow =
+            calculator.process(RideSensorSample(timestampMs = 4_000L, altitudeFromBarometerM = 100.0), settings)
+
+        assertThat(justInsideWindow.isSpeedStale).isFalse()
+        assertThat(pastWindow.currentSpeedKmh).isEqualTo(0.0)
+        assertThat(pastWindow.isSpeedStale).isTrue()
+    }
+
+    @Test
     fun `first sample initializes session start`() {
         val metrics = calculator.process(sampleAt(1000L), settings)
         assertThat(metrics.elapsedTimeSeconds).isZero()
