@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -65,7 +66,10 @@ fun LifetimeStatsScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = { onAction(LifetimeStatsAction.OnBackClick) }) {
+                    IconButton(
+                        onClick = { onAction(LifetimeStatsAction.OnBackClick) },
+                        modifier = Modifier.testTag(LifetimeStatsTestTags.BACK_BUTTON),
+                    ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.lifetime_stats_cd_back),
@@ -84,23 +88,48 @@ fun LifetimeStatsScreen(
                     .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            StatRow(stringResource(R.string.lifetime_stats_total_rides), state.stats.totalRides)
+            StatRow(
+                key = LifetimeStatsTestTags.TOTAL_RIDES,
+                label = stringResource(R.string.lifetime_stats_total_rides),
+                value = state.stats.totalRides,
+            )
             HorizontalDividerMMD()
-            StatRow(stringResource(R.string.lifetime_stats_total_distance), state.stats.totalDistance)
+            StatRow(
+                key = LifetimeStatsTestTags.TOTAL_DISTANCE,
+                label = stringResource(R.string.lifetime_stats_total_distance),
+                value = state.stats.totalDistance,
+            )
             HorizontalDividerMMD()
-            StatRow(stringResource(R.string.lifetime_stats_total_time), state.stats.totalMovingTime)
+            StatRow(
+                key = LifetimeStatsTestTags.TOTAL_MOVING_TIME,
+                label = stringResource(R.string.lifetime_stats_total_time),
+                value = state.stats.totalMovingTime,
+            )
             HorizontalDividerMMD()
-            StatRow(stringResource(R.string.lifetime_stats_total_elevation), state.stats.totalElevationGain)
+            StatRow(
+                key = LifetimeStatsTestTags.TOTAL_ELEVATION,
+                label = stringResource(R.string.lifetime_stats_total_elevation),
+                value = state.stats.totalElevationGain,
+            )
             HorizontalDividerMMD()
-            StatRow(stringResource(R.string.lifetime_stats_max_speed), state.stats.maxSpeed)
+            StatRow(
+                key = LifetimeStatsTestTags.MAX_SPEED,
+                label = stringResource(R.string.lifetime_stats_max_speed),
+                value = state.stats.maxSpeed,
+            )
             HorizontalDividerMMD()
-            StatRow(stringResource(R.string.lifetime_stats_total_calories), state.stats.totalCalories)
+            StatRow(
+                key = LifetimeStatsTestTags.TOTAL_CALORIES,
+                label = stringResource(R.string.lifetime_stats_total_calories),
+                value = state.stats.totalCalories,
+            )
         }
     }
 }
 
 @Composable
 private fun StatRow(
+    key: String,
     label: String,
     value: String,
 ) {
@@ -113,7 +142,12 @@ private fun StatRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         TextMMD(text = label, style = MaterialTheme.typography.bodyLarge)
-        TextMMD(text = value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        TextMMD(
+            text = value,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.testTag(key),
+        )
     }
 }
 
