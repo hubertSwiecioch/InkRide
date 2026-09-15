@@ -76,7 +76,8 @@ abstract class RideTrackingE2ETestBase {
             single { RideTracker(get(), get(), get(), get(), get(), get(), get()) }
         }
 
-    private var scenario: ActivityScenario<MainActivity>? = null
+    protected var scenario: ActivityScenario<MainActivity>? = null
+        private set
 
     /**
      * Every metric-visibility toggle defaults to on in [UserSettings]; this
@@ -126,6 +127,12 @@ abstract class RideTrackingE2ETestBase {
         // Let RideTracker's settings collector pick up the seeded UserSettings
         // before the first sample is processed.
         Thread.sleep(300L)
+    }
+
+    /** Rebuilds the activity the way a configuration change does. */
+    protected fun recreateActivity() {
+        scenario?.recreate()
+        composeTestRule.waitForIdle()
     }
 
     protected fun feedMovingSteps(
