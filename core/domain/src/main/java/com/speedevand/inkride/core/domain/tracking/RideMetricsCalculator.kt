@@ -168,9 +168,6 @@ class RideMetricsCalculator(
             if (sample.latitude != null && sample.longitude != null) {
                 lastLocationSample = sample
                 lastLocationSampleAtMs = sample.timestampMs
-                // Capture the GPS speed from the first location sample so it can be
-                // carried forward onto subsequent non-location samples.
-                sample.speedFromGpsMps?.let { lastReportedSpeedMps = it }
             }
             return RideMetrics(
                 altitudeM = smoothedAltitudeM,
