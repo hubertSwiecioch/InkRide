@@ -75,4 +75,10 @@
     <string name="bike_profiles_delete">Usuń</string>
     <string name="bike_profiles_save">Zapisz</string>
     <string name="bike_profiles_cancel">Anuluj</string>
+    <string name="settings_section_training">Trening</string>
+    <string name="settings_label_ftp">FTP</string>
+    <string name="settings_label_lthr">Progowe tętno</string>
+    <string name="settings_unit_watts">W</string>
+    <string name="settings_unit_bpm">ud/min</string>
+    <string name="settings_label_auto_detect_thresholds">Proponuj progi na podstawie jazd</string>
 </resources>

@@ -62,6 +62,11 @@ class RoomUserSettingsRepository(
                     pairedHrmAddress = entity.pairedHrmAddress,
                     pairedCadenceAddress = entity.pairedCadenceAddress,
                     pairedPowerAddress = entity.pairedPowerAddress,
+                    ftpWatts = entity.ftpWatts,
+                    lthrBpm = entity.lthrBpm,
+                    autoDetectThresholds = entity.autoDetectThresholds,
+                    pendingFtpWatts = entity.pendingFtpWatts,
+                    pendingLthrBpm = entity.pendingLthrBpm,
                     alerts =
                         AlertConfig(
                             maxSpeedKmh = entity.maxSpeedAlertKmh,
@@ -105,6 +110,11 @@ class RoomUserSettingsRepository(
                     pairedHrmAddress = settings.pairedHrmAddress,
                     pairedCadenceAddress = settings.pairedCadenceAddress,
                     pairedPowerAddress = settings.pairedPowerAddress,
+                    ftpWatts = settings.ftpWatts,
+                    lthrBpm = settings.lthrBpm,
+                    autoDetectThresholds = settings.autoDetectThresholds,
+                    pendingFtpWatts = settings.pendingFtpWatts,
+                    pendingLthrBpm = settings.pendingLthrBpm,
                     maxSpeedAlertKmh = settings.alerts.maxSpeedKmh,
                     hrZoneMinBpm = settings.alerts.hrZoneMinBpm,
                     hrZoneMaxBpm = settings.alerts.hrZoneMaxBpm,

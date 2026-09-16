@@ -204,6 +204,42 @@ private fun ProfileSection(
         )
 
         SectionDivider()
+        SectionHeader(stringResource(R.string.settings_section_training))
+
+        ToggleableStepperRow(
+            key = SettingsTestTags.FTP,
+            label = stringResource(R.string.settings_label_ftp),
+            enabled = state.userSettingsUi.ftpWatts.isNotEmpty(),
+            value = state.userSettingsUi.ftpWatts,
+            unit = stringResource(R.string.settings_unit_watts),
+            step = 5.0,
+            min = SettingsConstants.FTP_MIN_WATTS.toDouble(),
+            max = SettingsConstants.FTP_MAX_WATTS.toDouble(),
+            onToggle = { onAction(SettingsAction.OnFtpToggle(it)) },
+            onStepChange = { onAction(SettingsAction.OnFtpChange(it)) },
+        )
+
+        ToggleableStepperRow(
+            key = SettingsTestTags.LTHR,
+            label = stringResource(R.string.settings_label_lthr),
+            enabled = state.userSettingsUi.lthrBpm.isNotEmpty(),
+            value = state.userSettingsUi.lthrBpm,
+            unit = stringResource(R.string.settings_unit_bpm),
+            step = 1.0,
+            min = SettingsConstants.LTHR_MIN_BPM.toDouble(),
+            max = SettingsConstants.LTHR_MAX_BPM.toDouble(),
+            onToggle = { onAction(SettingsAction.OnLthrToggle(it)) },
+            onStepChange = { onAction(SettingsAction.OnLthrChange(it)) },
+        )
+
+        DashboardSettingRow(
+            key = SettingsTestTags.AUTO_DETECT_THRESHOLDS,
+            label = stringResource(R.string.settings_label_auto_detect_thresholds),
+            checked = state.userSettingsUi.autoDetectThresholds,
+            onCheckedChange = { onAction(SettingsAction.OnAutoDetectThresholdsToggle(it)) },
+        )
+
+        SectionDivider()
         SectionHeader(stringResource(R.string.settings_language))
 
         listOf(
@@ -404,7 +440,7 @@ private fun AlertsSection(
 
     SectionHeader(stringResource(R.string.settings_section_alerts))
 
-    AlertSwitchRow(
+    ToggleableStepperRow(
         key = SettingsTestTags.ALERT_MAX_SPEED,
         label = stringResource(R.string.settings_alert_max_speed),
         enabled = state.userSettings.alerts.maxSpeedKmh != null,
@@ -417,7 +453,7 @@ private fun AlertsSection(
         onStepChange = { onAction(SettingsAction.OnMaxSpeedAlertChange(it)) },
     )
 
-    AlertSwitchRow(
+    ToggleableStepperRow(
         key = SettingsTestTags.ALERT_HR_MIN,
         label = stringResource(R.string.settings_alert_hr_min),
         enabled = state.userSettings.alerts.hrZoneMinBpm != null,
@@ -430,7 +466,7 @@ private fun AlertsSection(
         onStepChange = { onAction(SettingsAction.OnHrMinAlertChange(it)) },
     )
 
-    AlertSwitchRow(
+    ToggleableStepperRow(
         key = SettingsTestTags.ALERT_HR_MAX,
         label = stringResource(R.string.settings_alert_hr_max),
         enabled = state.userSettings.alerts.hrZoneMaxBpm != null,
@@ -615,8 +651,13 @@ private fun NumberStepperRow(
     }
 }
 
+/**
+ * A switch that reveals a stepper when it is on, and means "unset" when off.
+ * Shared by the alert thresholds and the training thresholds — nothing about it
+ * is alert-specific, and naming it so would make the reuse look accidental.
+ */
 @Composable
-private fun AlertSwitchRow(
+private fun ToggleableStepperRow(
     key: String,
     label: String,
     enabled: Boolean,

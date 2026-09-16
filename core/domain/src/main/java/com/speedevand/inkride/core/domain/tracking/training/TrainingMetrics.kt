@@ -1,5 +1,8 @@
 package com.speedevand.inkride.core.domain.tracking.training
 
+import com.speedevand.inkride.core.domain.settings.UserSettings
+import com.speedevand.inkride.core.domain.tracking.HeartRateZoneCalculator
+
 /**
  * Training load for the ride so far. Every field is null when its inputs are
  * absent rather than approximated: NP, IF and TSS require power from a meter
@@ -29,4 +32,20 @@ data class AthleteThresholds(
     val ftpWatts: Int?,
     val lthrBpm: Int?,
     val ageForHrZones: Int,
-)
+) {
+    companion object {
+        /**
+         * Thresholds for a rider. FTP has no defensible default, so it stays
+         * null; LTHR falls back to 90 % of Tanaka's age-predicted HRmax, an
+         * established rule of thumb.
+         */
+        fun from(settings: UserSettings): AthleteThresholds =
+            AthleteThresholds(
+                ftpWatts = settings.ftpWatts,
+                lthrBpm =
+                    settings.lthrBpm
+                        ?: (HeartRateZoneCalculator().maxHeartRateBpm(settings.age) * 0.9).toInt(),
+                ageForHrZones = settings.age,
+            )
+    }
+}

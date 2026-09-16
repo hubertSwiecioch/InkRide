@@ -52,6 +52,26 @@ sealed interface SettingsAction {
         val enabled: Boolean,
     ) : SettingsAction
 
+    data class OnFtpChange(
+        val value: String,
+    ) : SettingsAction
+
+    data class OnFtpToggle(
+        val enabled: Boolean,
+    ) : SettingsAction
+
+    data class OnLthrChange(
+        val value: String,
+    ) : SettingsAction
+
+    data class OnLthrToggle(
+        val enabled: Boolean,
+    ) : SettingsAction
+
+    data class OnAutoDetectThresholdsToggle(
+        val enabled: Boolean,
+    ) : SettingsAction
+
     data object OnBackClick : SettingsAction
 
     data object OnBluetoothSensorsClick : SettingsAction

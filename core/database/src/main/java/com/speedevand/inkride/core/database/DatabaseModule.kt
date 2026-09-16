@@ -145,6 +145,58 @@ val MIGRATION_8_9 =
         }
     }
 
+/**
+ * v9 → v10: adds the training-load columns.
+ *
+ * `ride_history` gains the per-ride aggregates, all nullable — a ride without a
+ * power meter or a heart-rate strap simply has no NP or hrTSS, and an absent
+ * metric is not a zero. `ftpAtRideWatts` / `lthrAtRideBpm` record the thresholds
+ * in force at the time, so raising FTP later never rewrites the training load of
+ * past rides.
+ *
+ * `user_settings` gains the thresholds themselves, the opt-in auto-detection
+ * flag and its pending candidates (never applied silently), plus the auto-lap
+ * configuration. Nothing is backfilled: the 1 Hz stream these are computed from
+ * did not exist for earlier rides, so there is nothing to recompute and nothing
+ * is invented.
+ */
+val MIGRATION_9_10 =
+    object : Migration(9, 10) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            listOf(
+                "`normalizedPowerWatts` INTEGER",
+                "`intensityFactor` REAL",
+                "`trainingStressScore` REAL",
+                "`hrTss` REAL",
+                "`trimp` REAL",
+                "`workKj` REAL",
+                "`decouplingPercent` REAL",
+                "`avgHeartRateBpm` INTEGER",
+                "`maxHeartRateBpm` INTEGER",
+                "`avgCadenceRpm` INTEGER",
+                "`maxPowerWatts` INTEGER",
+                "`powerSource` TEXT",
+                "`ftpAtRideWatts` INTEGER",
+                "`lthrAtRideBpm` INTEGER",
+            ).forEach { column ->
+                db.execSQL("ALTER TABLE `ride_history` ADD COLUMN $column")
+            }
+
+            listOf(
+                "`ftpWatts` INTEGER",
+                "`lthrBpm` INTEGER",
+                "`autoDetectThresholds` INTEGER NOT NULL DEFAULT 1",
+                "`pendingFtpWatts` INTEGER",
+                "`pendingLthrBpm` INTEGER",
+                "`autoLapMode` TEXT NOT NULL DEFAULT 'OFF'",
+                "`autoLapDistanceKm` REAL",
+                "`autoLapIntervalMinutes` INTEGER",
+            ).forEach { column ->
+                db.execSQL("ALTER TABLE `user_settings` ADD COLUMN $column")
+            }
+        }
+    }
+
 val databaseModule =
     module {
         single {
@@ -153,7 +205,7 @@ val databaseModule =
                     androidContext(),
                     AppDatabase::class.java,
                     "inkride.db",
-                ).addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
+                ).addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
                 // No destructive fallback: it silently wipes every recorded ride
                 // when a migration is missing. Losing a rider's history is a worse
                 // outcome than failing loudly, and AppDatabaseMigrationTest is what

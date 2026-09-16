@@ -9,6 +9,7 @@ import com.speedevand.inkride.core.domain.onSuccess
 import com.speedevand.inkride.core.domain.settings.MeasurementUnits
 import com.speedevand.inkride.core.domain.settings.UserSettings
 import com.speedevand.inkride.core.domain.settings.UserSettingsRepository
+import com.speedevand.inkride.core.domain.tracking.training.AthleteThresholds
 import com.speedevand.inkride.core.presentation.UiText
 import com.speedevand.inkride.core.presentation.toUiText
 import com.speedevand.inkride.settings.presentation.SettingsConstants.AGE_MAX
@@ -20,7 +21,9 @@ import com.speedevand.inkride.settings.presentation.SettingsConstants.BIKE_WEIGH
 import com.speedevand.inkride.settings.presentation.SettingsConstants.BIKE_WEIGHT_MAX_LBS
 import com.speedevand.inkride.settings.presentation.SettingsConstants.BIKE_WEIGHT_MIN_KG
 import com.speedevand.inkride.settings.presentation.SettingsConstants.BIKE_WEIGHT_MIN_LBS
+import com.speedevand.inkride.settings.presentation.SettingsConstants.FTP_DEFAULT_WATTS
 import com.speedevand.inkride.settings.presentation.SettingsConstants.KMH_TO_MPH_FACTOR
+import com.speedevand.inkride.settings.presentation.SettingsConstants.LTHR_DEFAULT_BPM
 import com.speedevand.inkride.settings.presentation.SettingsConstants.WEIGHT_FACTOR_LBS
 import com.speedevand.inkride.settings.presentation.SettingsConstants.WEIGHT_MAX_KG
 import com.speedevand.inkride.settings.presentation.SettingsConstants.WEIGHT_MAX_LBS
@@ -291,6 +294,63 @@ class SettingsViewModel(
                     val current = _state.value.userSettings
                     saveSettings(current.copy(alerts = current.alerts.copy(hrZoneMaxBpm = bpm)))
                 }
+            }
+
+            is SettingsAction.OnFtpChange -> {
+                val filtered = action.value.filter { it.isDigit() }
+                _state.update {
+                    it.copy(userSettingsUi = it.userSettingsUi.copy(ftpWatts = filtered))
+                }
+                filtered.toIntOrNull()?.let { watts ->
+                    saveSettings(_state.value.userSettings.copy(ftpWatts = watts))
+                }
+            }
+
+            is SettingsAction.OnFtpToggle -> {
+                val current = _state.value.userSettings
+                if (action.enabled) {
+                    val kept = _state.value.userSettingsUi.ftpWatts
+                    val watts = kept.toIntOrNull() ?: FTP_DEFAULT_WATTS
+                    _state.update { it.copy(userSettingsUi = it.userSettingsUi.copy(ftpWatts = watts.toString())) }
+                    saveSettings(current.copy(ftpWatts = watts))
+                } else {
+                    // Clearing FTP is not a reset to some default: without it, IF
+                    // and TSS go back to being unavailable rather than guessed.
+                    _state.update { it.copy(userSettingsUi = it.userSettingsUi.copy(ftpWatts = "")) }
+                    saveSettings(current.copy(ftpWatts = null))
+                }
+            }
+
+            is SettingsAction.OnLthrChange -> {
+                val filtered = action.value.filter { it.isDigit() }
+                _state.update {
+                    it.copy(userSettingsUi = it.userSettingsUi.copy(lthrBpm = filtered))
+                }
+                filtered.toIntOrNull()?.let { bpm ->
+                    saveSettings(_state.value.userSettings.copy(lthrBpm = bpm))
+                }
+            }
+
+            is SettingsAction.OnLthrToggle -> {
+                val current = _state.value.userSettings
+                if (action.enabled) {
+                    val kept = _state.value.userSettingsUi.lthrBpm
+                    // Seed from the same age-predicted fallback the calculator
+                    // would have used, so turning the row on changes nothing yet.
+                    val bpm = kept.toIntOrNull() ?: AthleteThresholds.from(current).lthrBpm ?: LTHR_DEFAULT_BPM
+                    _state.update { it.copy(userSettingsUi = it.userSettingsUi.copy(lthrBpm = bpm.toString())) }
+                    saveSettings(current.copy(lthrBpm = bpm))
+                } else {
+                    _state.update { it.copy(userSettingsUi = it.userSettingsUi.copy(lthrBpm = "")) }
+                    saveSettings(current.copy(lthrBpm = null))
+                }
+            }
+
+            is SettingsAction.OnAutoDetectThresholdsToggle -> {
+                _state.update {
+                    it.copy(userSettingsUi = it.userSettingsUi.copy(autoDetectThresholds = action.enabled))
+                }
+                saveSettings(_state.value.userSettings.copy(autoDetectThresholds = action.enabled))
             }
 
             is SettingsAction.OnHrMaxAlertToggle -> {

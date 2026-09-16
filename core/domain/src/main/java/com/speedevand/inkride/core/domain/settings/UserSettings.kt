@@ -33,6 +33,16 @@ data class UserSettings(
     val pairedHrmAddress: String? = null,
     val pairedCadenceAddress: String? = null,
     val pairedPowerAddress: String? = null,
+    // Functional threshold power, in watts. Null means the rider has not set one
+    // and none has been detected: IF and TSS are then unavailable rather than
+    // computed against an invented number.
+    val ftpWatts: Int? = null,
+    // Lactate threshold heart rate. Null falls back to 0.9 x age-predicted HRmax.
+    val lthrBpm: Int? = null,
+    val autoDetectThresholds: Boolean = true,
+    // Detected candidates awaiting the rider's yes or no. Never applied silently.
+    val pendingFtpWatts: Int? = null,
+    val pendingLthrBpm: Int? = null,
     // Speed / heart-rate alert thresholds (each field null = that alert off).
     val alerts: AlertConfig = AlertConfig(),
     // Active bike profile; when set and resolvable, its weight/type drive the

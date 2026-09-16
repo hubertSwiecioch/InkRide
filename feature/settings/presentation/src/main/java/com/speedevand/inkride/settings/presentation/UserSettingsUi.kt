@@ -22,6 +22,11 @@ data class UserSettingsUi(
     val maxSpeedAlert: String = "",
     val hrMinAlert: String = "",
     val hrMaxAlert: String = "",
+    // Thresholds as editable text; blank means "not set", which keeps IF and TSS
+    // unavailable rather than computed against an invented number.
+    val ftpWatts: String = "",
+    val lthrBpm: String = "",
+    val autoDetectThresholds: Boolean = true,
 )
 
 fun UserSettings.toUserSettingsUi(): UserSettingsUi {
@@ -37,5 +42,8 @@ fun UserSettings.toUserSettingsUi(): UserSettingsUi {
         maxSpeedAlert = alerts.maxSpeedKmh?.let { String.format(Locale.ROOT, "%.0f", it * speedFactor) } ?: "",
         hrMinAlert = alerts.hrZoneMinBpm?.toString() ?: "",
         hrMaxAlert = alerts.hrZoneMaxBpm?.toString() ?: "",
+        ftpWatts = ftpWatts?.toString() ?: "",
+        lthrBpm = lthrBpm?.toString() ?: "",
+        autoDetectThresholds = autoDetectThresholds,
     )
 }
