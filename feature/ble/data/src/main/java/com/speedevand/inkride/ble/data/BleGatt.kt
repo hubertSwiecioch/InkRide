@@ -97,12 +97,44 @@ internal fun parseCyclingPower(data: ByteArray): CyclingPowerResult? {
 }
 
 /**
+ * Turns successive cumulative crank readings into an instantaneous cadence.
+ * Shared by the CSC (0x2A5B) and Cycling Power (0x2A63) parsers, which carry
+ * the identical field pair: cumulative revolutions and an event time in
+ * 1/1024 s, both wrapping at 65536. Returns null until a baseline exists and
+ * whenever no time has elapsed between readings.
+ */
+internal class CrankRevolutionTracker {
+    private var lastRevolutions: Int? = null
+    private var lastEventTime: Int? = null
+
+    fun cadenceFrom(
+        revolutions: Int,
+        eventTime: Int,
+    ): Int? {
+        val previousRevolutions = lastRevolutions
+        val previousEventTime = lastEventTime
+        lastRevolutions = revolutions
+        lastEventTime = eventTime
+        if (previousRevolutions == null || previousEventTime == null) return null
+
+        val deltaRevolutions = (revolutions - previousRevolutions + 0x10000) % 0x10000
+        val deltaTime = (eventTime - previousEventTime + 0x10000) % 0x10000
+        if (deltaTime <= 0) return null
+        return (deltaRevolutions.toDouble() * 1024.0 * 60.0 / deltaTime.toDouble()).toInt()
+    }
+
+    fun reset() {
+        lastRevolutions = null
+        lastEventTime = null
+    }
+}
+
+/**
  * Holds the previous crank revolution count / event time from a CSC sensor so
  * the next notification can be turned into an instantaneous cadence (rpm).
  */
 internal class CscCadenceTracker {
-    private var lastCrankRevs: Int? = null
-    private var lastCrankEventTime: Int? = null
+    private val crankTracker = CrankRevolutionTracker()
 
     /**
      * Decodes a CSC Measurement (0x2A5B) value and returns the derived cadence in
@@ -126,26 +158,11 @@ internal class CscCadenceTracker {
         if (!crankPresent) return CscResult(cadenceRpm = null, wheelRevolutions = wheelRevolutions)
         if (data.size < offset + 4) return CscResult(cadenceRpm = null, wheelRevolutions = wheelRevolutions)
 
-        val crankRevs = readUint16(data, offset)
-        val crankEventTime = readUint16(data, offset + 2)
-
-        val prevRevs = lastCrankRevs
-        val prevTime = lastCrankEventTime
-        lastCrankRevs = crankRevs
-        lastCrankEventTime = crankEventTime
-
-        if (prevRevs == null || prevTime == null) {
-            return CscResult(cadenceRpm = null, wheelRevolutions = wheelRevolutions)
-        }
-
-        val deltaRevs = (crankRevs - prevRevs + 0x10000) % 0x10000
-        val deltaTime = (crankEventTime - prevTime + 0x10000) % 0x10000
         val cadence =
-            if (deltaTime > 0) {
-                (deltaRevs.toDouble() * 1024.0 * 60.0 / deltaTime.toDouble()).toInt()
-            } else {
-                null
-            }
+            crankTracker.cadenceFrom(
+                revolutions = readUint16(data, offset),
+                eventTime = readUint16(data, offset + 2),
+            )
         return CscResult(cadenceRpm = cadence, wheelRevolutions = wheelRevolutions)
     }
 }

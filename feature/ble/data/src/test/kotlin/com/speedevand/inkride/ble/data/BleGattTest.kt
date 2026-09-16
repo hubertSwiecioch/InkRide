@@ -145,4 +145,39 @@ class BleGattTest {
         assertThat(result!!.powerWatts).isEqualTo(200)
         assertThat(result.crankRevolutions).isNull()
     }
+
+    @Test
+    fun `crank tracker needs a baseline and then derives rpm across the counter wrap`() {
+        val tracker = CrankRevolutionTracker()
+
+        // First reading establishes the baseline and yields nothing.
+        assertThat(tracker.cadenceFrom(revolutions = 65_530, eventTime = 64_000)).isNull()
+
+        // 6 revolutions later (65530 -> 0 wraps the uint16 counter), 6144/1024 s
+        // = 6 s elapsed -> 60 rpm. Both counters wrap between the two readings.
+        val cadence = tracker.cadenceFrom(revolutions = 0, eventTime = 4_608)
+
+        assertThat(cadence).isEqualTo(60)
+    }
+
+    @Test
+    fun `crank tracker returns null when no time has elapsed`() {
+        val tracker = CrankRevolutionTracker()
+        tracker.cadenceFrom(revolutions = 10, eventTime = 1_024)
+
+        assertThat(tracker.cadenceFrom(revolutions = 12, eventTime = 1_024)).isNull()
+    }
+
+    @Test
+    fun `crank tracker needs a fresh baseline after a reset`() {
+        val tracker = CrankRevolutionTracker()
+        tracker.cadenceFrom(revolutions = 10, eventTime = 1_024)
+
+        tracker.reset()
+
+        // Without the reset this would diff against revolutions = 10 and report
+        // a cadence; after it, the next reading is a baseline again.
+        assertThat(tracker.cadenceFrom(revolutions = 11, eventTime = 2_048)).isNull()
+        assertThat(tracker.cadenceFrom(revolutions = 12, eventTime = 3_072)).isEqualTo(60)
+    }
 }
