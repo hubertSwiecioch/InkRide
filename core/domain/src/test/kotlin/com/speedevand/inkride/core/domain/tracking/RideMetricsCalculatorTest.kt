@@ -5,6 +5,7 @@ import assertk.assertions.isEqualTo
 import assertk.assertions.isFalse
 import assertk.assertions.isGreaterThan
 import assertk.assertions.isLessThan
+import assertk.assertions.isNotEqualTo
 import assertk.assertions.isNotNull
 import assertk.assertions.isNull
 import assertk.assertions.isTrue
@@ -1054,4 +1055,127 @@ class RideMetricsCalculatorTest {
         bearingDegrees = bearing,
         satelliteCount = satelliteCount,
     )
+
+    @Test
+    fun `measured power replaces the estimate and is reported as MEASURED`() {
+        val calculator = RideMetricsCalculator()
+        val settings = UserSettings(weightKg = 75, age = 30)
+
+        calculator.process(
+            RideSensorSample(timestampMs = 0L, latitude = 52.0, longitude = 0.0, speedFromGpsMps = 8.0, accuracyM = 4.0f),
+            settings,
+        )
+        var metrics = RideMetrics()
+        repeat(4) { step ->
+            metrics =
+                calculator.process(
+                    sample =
+                        RideSensorSample(
+                            timestampMs = 1_000L * (step + 1),
+                            latitude = 52.0 + 0.000072 * (step + 1),
+                            longitude = 0.0,
+                            speedFromGpsMps = 8.0,
+                            accuracyM = 4.0f,
+                        ),
+                    userSettings = settings,
+                    measuredPowerWatts = 243,
+                )
+        }
+
+        assertThat(metrics.powerWatts).isEqualTo(243)
+        assertThat(metrics.powerSource).isEqualTo(PowerSource.MEASURED)
+    }
+
+    @Test
+    fun `power falls back to the estimator and is reported as ESTIMATED`() {
+        val calculator = RideMetricsCalculator()
+        val settings = UserSettings(weightKg = 75, age = 30)
+
+        calculator.process(
+            RideSensorSample(timestampMs = 0L, latitude = 52.0, longitude = 0.0, speedFromGpsMps = 8.0, accuracyM = 4.0f),
+            settings,
+        )
+        val metrics =
+            calculator.process(
+                RideSensorSample(timestampMs = 1_000L, latitude = 52.000072, longitude = 0.0, speedFromGpsMps = 8.0, accuracyM = 4.0f),
+                settings,
+            )
+
+        assertThat(metrics.powerSource).isEqualTo(PowerSource.ESTIMATED)
+    }
+
+    @Test
+    fun `a negative measured reading is floored at zero but still counts as MEASURED`() {
+        val calculator = RideMetricsCalculator()
+        val settings = UserSettings(weightKg = 75, age = 30)
+
+        calculator.process(
+            RideSensorSample(timestampMs = 0L, latitude = 52.0, longitude = 0.0, speedFromGpsMps = 8.0, accuracyM = 4.0f),
+            settings,
+        )
+        var metrics = RideMetrics()
+        repeat(4) { step ->
+            metrics =
+                calculator.process(
+                    sample =
+                        RideSensorSample(
+                            timestampMs = 1_000L * (step + 1),
+                            latitude = 52.0 + 0.000072 * (step + 1),
+                            longitude = 0.0,
+                            speedFromGpsMps = 8.0,
+                            accuracyM = 4.0f,
+                        ),
+                    userSettings = settings,
+                    // Some meters report a small negative value while coasting.
+                    measuredPowerWatts = -5,
+                )
+        }
+
+        // The reading is still a measurement, not a modelled guess — clamping
+        // the displayed watts must not silently re-route power to the estimator.
+        assertThat(metrics.powerWatts).isEqualTo(0)
+        assertThat(metrics.powerSource).isEqualTo(PowerSource.MEASURED)
+    }
+
+    @Test
+    fun `power source reverts to ESTIMATED after the meter stops reporting`() {
+        val calculator = RideMetricsCalculator()
+        val settings = UserSettings(weightKg = 75, age = 30)
+
+        calculator.process(
+            RideSensorSample(timestampMs = 0L, latitude = 52.0, longitude = 0.0, speedFromGpsMps = 8.0, accuracyM = 4.0f),
+            settings,
+        )
+        repeat(4) { step ->
+            calculator.process(
+                sample =
+                    RideSensorSample(
+                        timestampMs = 1_000L * (step + 1),
+                        latitude = 52.0 + 0.000072 * (step + 1),
+                        longitude = 0.0,
+                        speedFromGpsMps = 8.0,
+                        accuracyM = 4.0f,
+                    ),
+                userSettings = settings,
+                measuredPowerWatts = 243,
+            )
+        }
+
+        // Meter unpaired or dropped: the next sample carries no measurement.
+        val metrics =
+            calculator.process(
+                sample =
+                    RideSensorSample(
+                        timestampMs = 5_000L,
+                        latitude = 52.00036,
+                        longitude = 0.0,
+                        speedFromGpsMps = 8.0,
+                        accuracyM = 4.0f,
+                    ),
+                userSettings = settings,
+            )
+
+        assertThat(metrics.powerSource).isEqualTo(PowerSource.ESTIMATED)
+        assertThat(metrics.powerWatts).isNotEqualTo(243)
+    }
 }

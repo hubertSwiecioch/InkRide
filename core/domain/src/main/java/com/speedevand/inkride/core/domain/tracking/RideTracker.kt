@@ -144,6 +144,20 @@ class RideTracker(
 
     private val cadenceTimeoutMs: Long = 3_000L
 
+    // Latest watts from a paired power meter, and the wall-clock time of the
+    // packet that carried them. Null whenever no meter is reporting, which is
+    // what routes the calculator back to PowerEstimator.
+    @Volatile
+    private var latestMeasuredPowerWatts: Int? = null
+
+    @Volatile
+    private var lastPowerUpdateAtMs: Long? = null
+
+    // Same window cadence uses: a meter goes quiet when the crank stops, and
+    // holding its last reading would overstate the rider's effort exactly the
+    // way a frozen speed overstates their pace.
+    private val powerTimeoutMs: Long = 3_000L
+
     // In-memory GPS track for the current ride, flushed to the database (keyed by
     // the new ride's id) at stop. Guarded by [trackPointsLock] because it's
     // appended from the sample-collection coroutine but snapshotted/cleared from
@@ -289,6 +303,8 @@ class RideTracker(
         metricsCalculator.reset()
         lowSpeedSinceMs = null
         lastCadenceUpdateAtMs = null
+        latestMeasuredPowerWatts = null
+        lastPowerUpdateAtMs = null
         heartRateFilter.reset()
         resetAlertState()
         resetLapBaseline()
@@ -308,6 +324,8 @@ class RideTracker(
                 metricsCalculator.reset()
                 lowSpeedSinceMs = null
                 lastCadenceUpdateAtMs = null
+                latestMeasuredPowerWatts = null
+                lastPowerUpdateAtMs = null
                 heartRateFilter.reset()
                 resetAlertState()
                 resetLapBaseline()
@@ -417,8 +435,7 @@ class RideTracker(
                         speedKmh = metrics.currentSpeedKmh,
                         gradePercent = metrics.gradePercent,
                         powerWatts = metrics.powerWatts,
-                        // Filled in once RideMetrics carries a power source of its own.
-                        powerSource = null,
+                        powerSource = metrics.powerSource,
                         heartRateBpm = metrics.heartRateBpm,
                         cadenceRpm = metrics.cadenceRpm,
                     )
@@ -472,6 +489,8 @@ class RideTracker(
                     launch {
                         bleSensorDataSource.observeSamples().collect { ble ->
                             ble.cadenceUpdatedAtMs?.let { lastCadenceUpdateAtMs = it }
+                            ble.powerUpdatedAtMs?.let { lastPowerUpdateAtMs = it }
+                            latestMeasuredPowerWatts = ble.powerWatts
                             val updated =
                                 _state.updateAndGet { current ->
                                     if (current.status == TrackingStatus.IDLE) {
@@ -504,6 +523,7 @@ class RideTracker(
                                 sample = sample,
                                 userSettings = latestSettings,
                                 isPaused = isPaused,
+                                measuredPowerWatts = measuredPowerOrNullIfStale(sample.timestampMs),
                             )
                         val autoStatus =
                             evaluateAutoPause(
@@ -594,6 +614,19 @@ class RideTracker(
                 current
             }
         }
+
+    /**
+     * The latest measured watts, or null once the meter has been quiet for
+     * longer than [powerTimeoutMs]. Null rather than zero on purpose: zero is a
+     * claim the rider is producing no power, while null hands the reading back
+     * to [PowerEstimator], which is the honest answer when no meter is
+     * reporting.
+     */
+    private fun measuredPowerOrNullIfStale(nowMs: Long): Int? {
+        val watts = latestMeasuredPowerWatts ?: return null
+        val lastUpdate = lastPowerUpdateAtMs ?: return watts
+        return if (nowMs - lastUpdate > powerTimeoutMs) null else watts
+    }
 
     /**
      * Returns 0 once more than [cadenceTimeoutMs] has passed since the last

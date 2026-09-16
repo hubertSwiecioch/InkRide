@@ -81,6 +81,7 @@ class RideMetricsCalculator(
     private var lastKnownBearingDeg: Float? = null
     private var lastKnownBearingAtMs: Long? = null
     private var currentPowerWatts: Int = 0
+    private var currentPowerSource: PowerSource = PowerSource.ESTIMATED
 
     // Time-weighted average power over MOVING time. Sample emission is irregular
     // (GPS ~1 Hz, barometer ~2 Hz, heading bursty), so a simple per-sample mean
@@ -140,6 +141,7 @@ class RideMetricsCalculator(
         lastKnownBearingDeg = null
         lastKnownBearingAtMs = null
         currentPowerWatts = 0
+        currentPowerSource = PowerSource.ESTIMATED
         powerWeightedSumWattMs = 0.0
         powerDurationMs = 0L
         baroGpsOffsetM = null
@@ -159,6 +161,10 @@ class RideMetricsCalculator(
         sample: RideSensorSample,
         userSettings: UserSettings,
         isPaused: Boolean = false,
+        // Watts from a paired power meter. When present the physical model is
+        // not consulted at all: a real measurement always beats a ±30-60 %
+        // estimate dominated by unmeasured wind.
+        measuredPowerWatts: Int? = null,
     ): RideMetrics {
         val startTime = sessionStartMs ?: sample.timestampMs.also { sessionStartMs = it }
         val previous = lastSample
@@ -465,14 +471,23 @@ class RideMetricsCalculator(
                         smoothedAccelMps2 + 0.3 * (rawAccel - smoothedAccelMps2)
                     }
 
-                currentPowerWatts =
-                    powerEstimator.estimateWatts(
-                        speedMps = speedMps,
-                        accelerationMps2 = smoothedAccelMps2,
-                        gradePercent = currentGrade,
-                        userSettings = userSettings,
-                        altitudeM = smoothedAltitudeM,
-                    )
+                if (measuredPowerWatts != null) {
+                    // Floored at zero for display — some meters report a small
+                    // negative value while coasting — but still a measurement,
+                    // so the source does not revert to the model.
+                    currentPowerWatts = measuredPowerWatts.coerceAtLeast(0)
+                    currentPowerSource = PowerSource.MEASURED
+                } else {
+                    currentPowerWatts =
+                        powerEstimator.estimateWatts(
+                            speedMps = speedMps,
+                            accelerationMps2 = smoothedAccelMps2,
+                            gradePercent = currentGrade,
+                            userSettings = userSettings,
+                            altitudeM = smoothedAltitudeM,
+                        )
+                    currentPowerSource = PowerSource.ESTIMATED
+                }
                 if (isActuallyMoving) {
                     powerWeightedSumWattMs += currentPowerWatts.toDouble() * energyDtMs
                     powerDurationMs += energyDtMs
@@ -596,6 +611,7 @@ class RideMetricsCalculator(
             gradePercent = currentGrade,
             caloriesKcal = caloriesKcal,
             powerWatts = currentPowerWatts,
+            powerSource = currentPowerSource,
             averagePowerWatts = avgPower,
             gpsAccuracyM = sample.accuracyM,
             bearingDegrees = resolvedBearing,

@@ -19,6 +19,9 @@ data class RideMetrics(
     val caloriesKcal: Double = 0.0,
     val powerWatts: Int = 0,
     val averagePowerWatts: Int = 0,
+    // Where powerWatts came from. The UI marks estimated power as a model
+    // output, and training load refuses to build NP/IF/TSS on top of it.
+    val powerSource: PowerSource = PowerSource.ESTIMATED,
     val gpsAccuracyM: Float? = null,
     val bearingDegrees: Float? = null,
     val gpsQuality: GpsQuality = GpsQuality.POOR,
