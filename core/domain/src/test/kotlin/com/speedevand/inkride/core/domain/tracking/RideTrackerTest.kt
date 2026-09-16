@@ -26,6 +26,8 @@ import com.speedevand.inkride.core.domain.history.RideSampleRepository
 import com.speedevand.inkride.core.domain.history.RideTrackPoint
 import com.speedevand.inkride.core.domain.history.RideTrackPointRepository
 import com.speedevand.inkride.core.domain.settings.AlertConfig
+import com.speedevand.inkride.core.domain.settings.AutoLapConfig
+import com.speedevand.inkride.core.domain.settings.AutoLapMode
 import com.speedevand.inkride.core.domain.settings.UserSettings
 import com.speedevand.inkride.core.domain.settings.UserSettingsRepository
 import kotlinx.coroutines.CoroutineScope
@@ -675,6 +677,110 @@ class RideTrackerTest {
 
             // A second ride must not inherit the first one's accumulated load.
             assertThat(tracker.state.value.trainingMetrics.workKj).isEqualTo(0.0)
+        }
+
+    @Test
+    fun `a lap closes every whole kilometre when auto-lap is set to distance`() =
+        runTest {
+            val sensor = FakeSensorDataSource()
+            val tracker =
+                newTracker(
+                    testScheduler,
+                    sensor,
+                    settings = settings.copy(autoLap = AutoLapConfig(AutoLapMode.DISTANCE, distanceKm = 1.0)),
+                )
+
+            tracker.start()
+            // ~2.4 km at 8 m/s over 300 s.
+            repeat(300) { second ->
+                sensor.samples.emit(
+                    sampleAt(
+                        second * 1000L,
+                        latitude = 0.000072 * second,
+                        longitude = 0.0,
+                        speedFromGpsMps = 8.0,
+                        accuracy = 4.0f,
+                    ),
+                )
+            }
+
+            assertThat(tracker.state.value.laps).hasSize(2)
+        }
+
+    @Test
+    fun `no laps are recorded when auto-lap is off`() =
+        runTest {
+            val sensor = FakeSensorDataSource()
+            val tracker = newTracker(testScheduler, sensor)
+
+            tracker.start()
+            repeat(300) { second ->
+                sensor.samples.emit(
+                    sampleAt(
+                        second * 1000L,
+                        latitude = 0.000072 * second,
+                        longitude = 0.0,
+                        speedFromGpsMps = 8.0,
+                        accuracy = 4.0f,
+                    ),
+                )
+            }
+
+            assertThat(tracker.state.value.laps).isEmpty()
+        }
+
+    @Test
+    fun `a lap closes on each interval when auto-lap is set to time`() =
+        runTest {
+            val sensor = FakeSensorDataSource()
+            val tracker =
+                newTracker(
+                    testScheduler,
+                    sensor,
+                    settings = settings.copy(autoLap = AutoLapConfig(AutoLapMode.TIME, intervalMinutes = 1)),
+                )
+
+            tracker.start()
+            // 150 s of riding at one lap a minute.
+            repeat(150) { second ->
+                sensor.samples.emit(
+                    sampleAt(
+                        second * 1000L,
+                        latitude = 0.000072 * second,
+                        longitude = 0.0,
+                        speedFromGpsMps = 8.0,
+                        accuracy = 4.0f,
+                    ),
+                )
+            }
+
+            assertThat(tracker.state.value.laps).hasSize(2)
+        }
+
+    @Test
+    fun `auto-lap boundaries do not carry over into the next ride`() =
+        runTest {
+            val sensor = FakeSensorDataSource()
+            val tracker =
+                newTracker(
+                    testScheduler,
+                    sensor,
+                    settings = settings.copy(autoLap = AutoLapConfig(AutoLapMode.DISTANCE, distanceKm = 1.0)),
+                )
+
+            tracker.start()
+            repeat(300) { second ->
+                sensor.samples.emit(
+                    sampleAt(second * 1000L, latitude = 0.000072 * second, speedFromGpsMps = 8.0, accuracy = 4.0f),
+                )
+            }
+            tracker.stop()
+
+            tracker.start()
+
+            // A stale boundary from the previous ride would either fire a lap
+            // immediately or swallow the first kilometre of this one.
+            assertThat(tracker.state.value.laps).isEmpty()
         }
 
     private fun newTracker(

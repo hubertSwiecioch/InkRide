@@ -13,6 +13,7 @@ import com.speedevand.inkride.core.domain.history.RideTrackPoint
 import com.speedevand.inkride.core.domain.history.RideTrackPointRepository
 import com.speedevand.inkride.core.domain.onFailure
 import com.speedevand.inkride.core.domain.onSuccess
+import com.speedevand.inkride.core.domain.settings.AutoLapMode
 import com.speedevand.inkride.core.domain.settings.UserSettings
 import com.speedevand.inkride.core.domain.settings.UserSettingsRepository
 import com.speedevand.inkride.core.domain.tracking.training.AthleteThresholds
@@ -208,6 +209,10 @@ class RideTracker(
     private var lapBaselineMovingTimeSeconds: Long = 0L
     private var lapBaselineElevationGainM: Double = 0.0
 
+    // Ride-total distance / moving time at which the next automatic lap is due.
+    private var nextAutoLapDistanceKm: Double? = null
+    private var nextAutoLapMovingSeconds: Long? = null
+
     // Latest user settings, kept current by the collection loop so metric
     // calculation always uses up-to-date weight/bike/age values.
     @Volatile
@@ -372,6 +377,8 @@ class RideTracker(
         lapBaselineDistanceKm = 0.0
         lapBaselineMovingTimeSeconds = 0L
         lapBaselineElevationGainM = 0.0
+        nextAutoLapDistanceKm = null
+        nextAutoLapMovingSeconds = null
     }
 
     private fun buildLap(
@@ -599,6 +606,7 @@ class RideTracker(
                         recordRideSample(newState.status, sample, newState.metrics)
                         evaluateAlerts(newState.status, newState.metrics)
                         evaluateOffRoute(newState.status, newState.routeProgress)
+                        evaluateAutoLap(newState.status, newState.metrics)
                     }
                 } finally {
                     settingsJob.cancel()
@@ -741,6 +749,44 @@ class RideTracker(
         val lng = sample.longitude
         if (lat == null || lng == null) return _state.value.routeProgress
         return routeFollower.evaluate(route, lat, lng)
+    }
+
+    /**
+     * Closes a lap each time the ride crosses the next auto-lap boundary. Uses
+     * the existing [recordLap], so an automatic lap is indistinguishable from a
+     * manual one in the breakdown — which is what a rider expects.
+     */
+    private fun evaluateAutoLap(
+        status: TrackingStatus,
+        metrics: RideMetrics,
+    ) {
+        if (status != TrackingStatus.TRACKING) return
+        when (latestSettings.autoLap.mode) {
+            AutoLapMode.OFF -> {
+                return
+            }
+
+            AutoLapMode.DISTANCE -> {
+                val step = latestSettings.autoLap.distanceKm?.takeIf { it > 0.0 } ?: return
+                val due = nextAutoLapDistanceKm ?: step.also { nextAutoLapDistanceKm = it }
+                if (metrics.distanceKm >= due) {
+                    recordLap()
+                    nextAutoLapDistanceKm = due + step
+                }
+            }
+
+            AutoLapMode.TIME -> {
+                val step =
+                    latestSettings.autoLap.intervalMinutes
+                        ?.takeIf { it > 0 }
+                        ?.times(60L) ?: return
+                val due = nextAutoLapMovingSeconds ?: step.also { nextAutoLapMovingSeconds = it }
+                if (metrics.movingTimeSeconds >= due) {
+                    recordLap()
+                    nextAutoLapMovingSeconds = due + step
+                }
+            }
+        }
     }
 
     /**

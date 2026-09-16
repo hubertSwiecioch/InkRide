@@ -81,4 +81,10 @@
     <string name="settings_unit_watts">W</string>
     <string name="settings_unit_bpm">bpm</string>
     <string name="settings_label_auto_detect_thresholds">Suggest thresholds from rides</string>
+    <string name="settings_section_auto_lap">Auto lap</string>
+    <string name="settings_auto_lap_off">Off</string>
+    <string name="settings_auto_lap_distance">By distance</string>
+    <string name="settings_auto_lap_time">By time</string>
+    <string name="settings_label_auto_lap_every">Every</string>
+    <string name="settings_unit_minutes">min</string>
 </resources>

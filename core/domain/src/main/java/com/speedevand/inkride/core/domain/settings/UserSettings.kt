@@ -43,6 +43,7 @@ data class UserSettings(
     // Detected candidates awaiting the rider's yes or no. Never applied silently.
     val pendingFtpWatts: Int? = null,
     val pendingLthrBpm: Int? = null,
+    val autoLap: AutoLapConfig = AutoLapConfig(),
     // Speed / heart-rate alert thresholds (each field null = that alert off).
     val alerts: AlertConfig = AlertConfig(),
     // Active bike profile; when set and resolvable, its weight/type drive the

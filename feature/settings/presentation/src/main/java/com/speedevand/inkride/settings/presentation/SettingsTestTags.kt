@@ -16,6 +16,11 @@ object SettingsTestTags {
     const val FTP = "ftp"
     const val LTHR = "lthr"
     const val AUTO_DETECT_THRESHOLDS = "auto_detect_thresholds"
+    const val AUTO_LAP_DISTANCE = "auto_lap_distance"
+    const val AUTO_LAP_INTERVAL = "auto_lap_interval"
+
+    fun autoLapMode(mode: String): String = "auto_lap_mode_$mode"
+
     const val KEEP_SCREEN_ON = "keep_screen_on"
     const val BIKE_PROFILES = "bike_profiles"
     const val BLE_SENSORS = "ble_sensors"

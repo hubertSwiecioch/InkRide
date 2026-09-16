@@ -1,5 +1,6 @@
 package com.speedevand.inkride.settings.presentation
 
+import com.speedevand.inkride.core.domain.settings.AutoLapMode
 import com.speedevand.inkride.core.domain.settings.UserSettings
 import com.speedevand.inkride.core.presentation.UiText
 
@@ -70,6 +71,18 @@ sealed interface SettingsAction {
 
     data class OnAutoDetectThresholdsToggle(
         val enabled: Boolean,
+    ) : SettingsAction
+
+    data class OnAutoLapModeChange(
+        val mode: AutoLapMode,
+    ) : SettingsAction
+
+    data class OnAutoLapDistanceChange(
+        val value: String,
+    ) : SettingsAction
+
+    data class OnAutoLapIntervalChange(
+        val value: String,
     ) : SettingsAction
 
     data object OnBackClick : SettingsAction

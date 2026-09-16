@@ -1,5 +1,6 @@
 package com.speedevand.inkride.settings.presentation
 
+import com.speedevand.inkride.core.domain.settings.AutoLapMode
 import com.speedevand.inkride.core.domain.settings.BikeType
 import com.speedevand.inkride.core.domain.settings.MeasurementUnits
 import com.speedevand.inkride.core.domain.settings.UserSettings
@@ -27,6 +28,9 @@ data class UserSettingsUi(
     val ftpWatts: String = "",
     val lthrBpm: String = "",
     val autoDetectThresholds: Boolean = true,
+    val autoLapMode: AutoLapMode = AutoLapMode.OFF,
+    val autoLapDistanceKm: String = "",
+    val autoLapIntervalMinutes: String = "",
 )
 
 fun UserSettings.toUserSettingsUi(): UserSettingsUi {
@@ -45,5 +49,8 @@ fun UserSettings.toUserSettingsUi(): UserSettingsUi {
         ftpWatts = ftpWatts?.toString() ?: "",
         lthrBpm = lthrBpm?.toString() ?: "",
         autoDetectThresholds = autoDetectThresholds,
+        autoLapMode = autoLap.mode,
+        autoLapDistanceKm = autoLap.distanceKm?.let { String.format(Locale.ROOT, "%.1f", it) } ?: "",
+        autoLapIntervalMinutes = autoLap.intervalMinutes?.toString() ?: "",
     )
 }

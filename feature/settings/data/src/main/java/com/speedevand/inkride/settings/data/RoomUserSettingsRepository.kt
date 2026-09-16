@@ -9,6 +9,8 @@ import com.speedevand.inkride.core.domain.DataError
 import com.speedevand.inkride.core.domain.EmptyResult
 import com.speedevand.inkride.core.domain.Result
 import com.speedevand.inkride.core.domain.settings.AlertConfig
+import com.speedevand.inkride.core.domain.settings.AutoLapConfig
+import com.speedevand.inkride.core.domain.settings.AutoLapMode
 import com.speedevand.inkride.core.domain.settings.BikeType
 import com.speedevand.inkride.core.domain.settings.MeasurementUnits
 import com.speedevand.inkride.core.domain.settings.UserSettings
@@ -67,6 +69,14 @@ class RoomUserSettingsRepository(
                     autoDetectThresholds = entity.autoDetectThresholds,
                     pendingFtpWatts = entity.pendingFtpWatts,
                     pendingLthrBpm = entity.pendingLthrBpm,
+                    autoLap =
+                        AutoLapConfig(
+                            mode =
+                                runCatching { AutoLapMode.valueOf(entity.autoLapMode) }
+                                    .getOrDefault(AutoLapMode.OFF),
+                            distanceKm = entity.autoLapDistanceKm,
+                            intervalMinutes = entity.autoLapIntervalMinutes,
+                        ),
                     alerts =
                         AlertConfig(
                             maxSpeedKmh = entity.maxSpeedAlertKmh,
@@ -115,6 +125,9 @@ class RoomUserSettingsRepository(
                     autoDetectThresholds = settings.autoDetectThresholds,
                     pendingFtpWatts = settings.pendingFtpWatts,
                     pendingLthrBpm = settings.pendingLthrBpm,
+                    autoLapMode = settings.autoLap.mode.name,
+                    autoLapDistanceKm = settings.autoLap.distanceKm,
+                    autoLapIntervalMinutes = settings.autoLap.intervalMinutes,
                     maxSpeedAlertKmh = settings.alerts.maxSpeedKmh,
                     hrZoneMinBpm = settings.alerts.hrZoneMinBpm,
                     hrZoneMaxBpm = settings.alerts.hrZoneMaxBpm,

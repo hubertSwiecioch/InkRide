@@ -81,4 +81,10 @@
     <string name="settings_unit_watts">W</string>
     <string name="settings_unit_bpm">ud/min</string>
     <string name="settings_label_auto_detect_thresholds">Proponuj progi na podstawie jazd</string>
+    <string name="settings_section_auto_lap">Auto-okrążenie</string>
+    <string name="settings_auto_lap_off">Wyłączone</string>
+    <string name="settings_auto_lap_distance">Co dystans</string>
+    <string name="settings_auto_lap_time">Co czas</string>
+    <string name="settings_label_auto_lap_every">Co</string>
+    <string name="settings_unit_minutes">min</string>
 </resources>
