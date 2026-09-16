@@ -9,6 +9,8 @@ import com.speedevand.inkride.core.domain.DataError
 import com.speedevand.inkride.core.domain.EmptyResult
 import com.speedevand.inkride.core.domain.Result
 import com.speedevand.inkride.core.domain.settings.AlertConfig
+import com.speedevand.inkride.core.domain.settings.AutoLapConfig
+import com.speedevand.inkride.core.domain.settings.AutoLapMode
 import com.speedevand.inkride.core.domain.settings.BikeType
 import com.speedevand.inkride.core.domain.settings.MeasurementUnits
 import com.speedevand.inkride.core.domain.settings.UserSettings
@@ -58,10 +60,24 @@ class RoomUserSettingsRepository(
                     showGrade = entity.showGrade,
                     showCompass = entity.showCompass,
                     showPower = entity.showPower,
+                    showTrainingMetrics = entity.showTrainingMetrics,
                     keepScreenOn = entity.keepScreenOn,
                     pairedHrmAddress = entity.pairedHrmAddress,
                     pairedCadenceAddress = entity.pairedCadenceAddress,
                     pairedPowerAddress = entity.pairedPowerAddress,
+                    ftpWatts = entity.ftpWatts,
+                    lthrBpm = entity.lthrBpm,
+                    autoDetectThresholds = entity.autoDetectThresholds,
+                    pendingFtpWatts = entity.pendingFtpWatts,
+                    pendingLthrBpm = entity.pendingLthrBpm,
+                    autoLap =
+                        AutoLapConfig(
+                            mode =
+                                runCatching { AutoLapMode.valueOf(entity.autoLapMode) }
+                                    .getOrDefault(AutoLapMode.OFF),
+                            distanceKm = entity.autoLapDistanceKm,
+                            intervalMinutes = entity.autoLapIntervalMinutes,
+                        ),
                     alerts =
                         AlertConfig(
                             maxSpeedKmh = entity.maxSpeedAlertKmh,
@@ -101,10 +117,19 @@ class RoomUserSettingsRepository(
                     showGrade = settings.showGrade,
                     showCompass = settings.showCompass,
                     showPower = settings.showPower,
+                    showTrainingMetrics = settings.showTrainingMetrics,
                     keepScreenOn = settings.keepScreenOn,
                     pairedHrmAddress = settings.pairedHrmAddress,
                     pairedCadenceAddress = settings.pairedCadenceAddress,
                     pairedPowerAddress = settings.pairedPowerAddress,
+                    ftpWatts = settings.ftpWatts,
+                    lthrBpm = settings.lthrBpm,
+                    autoDetectThresholds = settings.autoDetectThresholds,
+                    pendingFtpWatts = settings.pendingFtpWatts,
+                    pendingLthrBpm = settings.pendingLthrBpm,
+                    autoLapMode = settings.autoLap.mode.name,
+                    autoLapDistanceKm = settings.autoLap.distanceKm,
+                    autoLapIntervalMinutes = settings.autoLap.intervalMinutes,
                     maxSpeedAlertKmh = settings.alerts.maxSpeedKmh,
                     hrZoneMinBpm = settings.alerts.hrZoneMinBpm,
                     hrZoneMaxBpm = settings.alerts.hrZoneMaxBpm,

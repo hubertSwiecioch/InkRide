@@ -12,7 +12,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Validates MIGRATION_6_7, MIGRATION_7_8 and MIGRATION_8_9 against the exported schema
+ * Validates MIGRATION_6_7 onwards against the exported schema
  * snapshots. Only 6 → 7 onwards can be checked this way: `exportSchema` was
  * switched on at version 6, so no snapshot exists for versions 4 or 5.
  * Migrations 4 → 5 and 5 → 6 stay covered by the hand-built Robolectric
@@ -155,6 +155,72 @@ class AppDatabaseMigrationTest {
                 // ...and the new column starts null: nobody has paired a meter yet,
                 // and null is what "no power meter" means everywhere else.
                 assertThat(cursor.isNull(2)).isTrue()
+            }
+    }
+
+    @Test
+    fun migrate9To10AddsTrainingColumnsWithoutInventingValuesForExistingRides() {
+        helper.createDatabase(TEST_DB, 9).use { db ->
+            db.execSQL(
+                """
+                INSERT INTO ride_history (
+                    id, startTimestamp, endTimestamp, distanceKm, movingTimeSeconds, elapsedTimeSeconds,
+                    averageSpeedKmh, maxSpeedKmh, elevationGainM, caloriesKcal, averagePowerWatts,
+                    bikeWeightKg, bikeType, isComplete
+                ) VALUES (1, 1000, 2000, 12.5, 1800, 2000, 25.0, 42.0, 120.0, 400.0, 150, 10.0, 'ROAD', 1)
+                """.trimIndent(),
+            )
+        }
+
+        val migrated = helper.runMigrationsAndValidate(TEST_DB, 10, true, MIGRATION_9_10)
+
+        migrated
+            .query(
+                "SELECT distanceKm, trainingStressScore, hrTss, ftpAtRideWatts FROM ride_history WHERE id = 1",
+            ).use { cursor ->
+                assertThat(cursor.moveToFirst()).isTrue()
+                // The ride survives untouched...
+                assertThat(cursor.getDouble(0)).isEqualTo(12.5)
+                // ...and its training load stays null. The 1 Hz stream these are
+                // computed from never existed for this ride, so there is nothing
+                // to recompute and nothing may be invented.
+                assertThat(cursor.isNull(1)).isTrue()
+                assertThat(cursor.isNull(2)).isTrue()
+                assertThat(cursor.isNull(3)).isTrue()
+            }
+    }
+
+    @Test
+    fun migrate9To10DefaultsAutoDetectionOnAndAutoLapOff() {
+        helper.createDatabase(TEST_DB, 9).use { db ->
+            db.execSQL(
+                """
+                INSERT INTO user_settings (
+                    id, weightKg, age, bikeWeightKg, bikeType, languageCode, units,
+                    showDistance, showMovingTime, showAverageSpeed, showMaxSpeed,
+                    showElevationGain, showCalories, showAltitude, showGrade,
+                    showCompass, showPower, keepScreenOn, hasCompletedOnboarding
+                ) VALUES (1, 82, 41, 9.5, 'ROAD', 'pl', 'METRIC', 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1)
+                """.trimIndent(),
+            )
+        }
+
+        val migrated = helper.runMigrationsAndValidate(TEST_DB, 10, true, MIGRATION_9_10)
+
+        migrated
+            .query(
+                "SELECT weightKg, ftpWatts, lthrBpm, autoDetectThresholds, autoLapMode FROM user_settings WHERE id = 1",
+            ).use { cursor ->
+                assertThat(cursor.moveToFirst()).isTrue()
+                assertThat(cursor.getInt(0)).isEqualTo(82)
+                // FTP is never invented, and LTHR falls back in code rather than
+                // being written into the column.
+                assertThat(cursor.isNull(1)).isTrue()
+                assertThat(cursor.isNull(2)).isTrue()
+                // Detection is opt-out, but it only ever proposes — see
+                // pendingFtpWatts. Auto-lap starts off.
+                assertThat(cursor.getInt(3)).isEqualTo(1)
+                assertThat(cursor.getString(4)).isEqualTo("OFF")
             }
     }
 

@@ -75,4 +75,16 @@
     <string name="bike_profiles_delete">Delete</string>
     <string name="bike_profiles_save">Save</string>
     <string name="bike_profiles_cancel">Cancel</string>
+    <string name="settings_section_training">Training</string>
+    <string name="settings_label_ftp">FTP</string>
+    <string name="settings_label_lthr">Threshold heart rate</string>
+    <string name="settings_unit_watts">W</string>
+    <string name="settings_unit_bpm">bpm</string>
+    <string name="settings_label_auto_detect_thresholds">Suggest thresholds from rides</string>
+    <string name="settings_section_auto_lap">Auto lap</string>
+    <string name="settings_auto_lap_off">Off</string>
+    <string name="settings_auto_lap_distance">By distance</string>
+    <string name="settings_auto_lap_time">By time</string>
+    <string name="settings_label_auto_lap_every">Every</string>
+    <string name="settings_unit_minutes">min</string>
 </resources>

@@ -75,7 +75,7 @@ class DashboardViewModel(
                 userSettingsRepository.observeSettings(),
             ) { tracking, settings ->
                 DashboardState(
-                    rideMetrics = tracking.metrics.toRideMetricsUi(settings.units, settings.age),
+                    rideMetrics = tracking.metrics.toRideMetricsUi(settings.units, settings.age, tracking.trainingMetrics),
                     status = tracking.status,
                     userSettings = settings,
                     lastLap = tracking.laps.lastOrNull()?.toSummaryUi(settings.units),

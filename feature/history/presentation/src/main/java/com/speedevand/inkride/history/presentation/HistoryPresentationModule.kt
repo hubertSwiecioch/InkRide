@@ -17,6 +17,7 @@ val historyPresentationModule =
                 rideHistoryRepository = get(),
                 lapRepository = get(),
                 trackPointRepository = get(),
+                sampleRepository = get(),
                 userSettingsRepository = get(),
                 gpxExporter = get(),
             )

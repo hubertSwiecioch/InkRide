@@ -133,14 +133,17 @@ class RideTrackingHappyPathTest : RideTrackingE2ETestBase() {
         assertThat(power).isGreaterThan(0)
         assertThat(power).isLessThan(3_000)
 
-        // --- Page 3 (compass): bearing.
+        // --- Page 3 (training): swiped past; its own assertions live in the
+        // dashboard module's tests, and this ride has no power meter so every
+        // value on it would read "--".
+        composeTestRule.swipeMetricsPagerToNextPage()
+
+        // --- Page 4 (compass): bearing.
         composeTestRule.swipeMetricsPagerToNextPage()
         assertThat(composeTestRule.textOf(DashboardTestTags.COMPASS_BEARING)).isEqualTo("0°")
 
         // Back to page 0 before the post-stop reset check below.
-        composeTestRule.swipeMetricsPagerToPreviousPage()
-        composeTestRule.swipeMetricsPagerToPreviousPage()
-        composeTestRule.swipeMetricsPagerToPreviousPage()
+        repeat(4) { composeTestRule.swipeMetricsPagerToPreviousPage() }
 
         val historyRepository = GlobalContext.get().get<RideHistoryRepository>()
         val ridesBeforeStop = runBlocking { historyRepository.observeAll().first() }

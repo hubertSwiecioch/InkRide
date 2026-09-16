@@ -28,8 +28,37 @@ data class RideDetailState(
     val laps: List<RideLapUi> = emptyList(),
     val trackPoints: List<TrackPointUi> = emptyList(),
     val elevationChart: ElevationChartUi? = null,
+    val training: RideDetailTrainingUi = RideDetailTrainingUi(),
+    val thresholdProposal: ThresholdProposalUi? = null,
     val isLoading: Boolean = true,
 )
+
+/**
+ * Training load for a finished ride, pre-formatted. Rides recorded before this
+ * feature have none of it — the 1 Hz stream they would be computed from was
+ * never written — so [hasAnyTrainingData] lets the screen hide the section
+ * entirely rather than show a wall of dashes.
+ */
+data class RideDetailTrainingUi(
+    val trainingStressScore: String = ABSENT,
+    val intensityFactor: String = ABSENT,
+    val normalizedPower: String = ABSENT,
+    val hrTss: String = ABSENT,
+    val trimp: String = ABSENT,
+    val work: String = ABSENT,
+    val decoupling: String = ABSENT,
+    val secondsInHrZone: Map<Int, Long> = emptyMap(),
+    val secondsInPowerZone: Map<Int, Long> = emptyMap(),
+    val hasAnyTrainingData: Boolean = false,
+)
+
+/** A threshold the detector proposed after a ride, awaiting the rider's answer. */
+data class ThresholdProposalUi(
+    val ftpWatts: Int? = null,
+    val lthrBpm: Int? = null,
+)
+
+const val ABSENT = "--"
 
 /**
  * A single recorded GPS position for plotting the route polyline. Kept free of
@@ -127,6 +156,10 @@ fun RideRecord.toDetailUi(units: MeasurementUnits = MeasurementUnits.METRIC): Ri
 }
 
 sealed interface RideDetailAction {
+    data object OnAcceptThresholdProposal : RideDetailAction
+
+    data object OnRejectThresholdProposal : RideDetailAction
+
     data object OnDeleteClick : RideDetailAction
 
     data object OnBackClick : RideDetailAction

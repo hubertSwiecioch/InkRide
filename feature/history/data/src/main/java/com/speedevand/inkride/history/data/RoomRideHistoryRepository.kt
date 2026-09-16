@@ -10,6 +10,7 @@ import com.speedevand.inkride.core.domain.Result
 import com.speedevand.inkride.core.domain.history.RideHistoryRepository
 import com.speedevand.inkride.core.domain.history.RideRecord
 import com.speedevand.inkride.core.domain.settings.BikeType
+import com.speedevand.inkride.core.domain.tracking.PowerSource
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -132,6 +133,20 @@ private fun RideHistoryEntity.toRideRecord() =
                 BikeType.ROAD
             },
         isComplete = isComplete,
+        normalizedPowerWatts = normalizedPowerWatts,
+        intensityFactor = intensityFactor,
+        trainingStressScore = trainingStressScore,
+        hrTss = hrTss,
+        trimp = trimp,
+        workKj = workKj,
+        decouplingPercent = decouplingPercent,
+        avgHeartRateBpm = avgHeartRateBpm,
+        maxHeartRateBpm = maxHeartRateBpm,
+        avgCadenceRpm = avgCadenceRpm,
+        maxPowerWatts = maxPowerWatts,
+        ftpAtRideWatts = ftpAtRideWatts,
+        lthrAtRideBpm = lthrAtRideBpm,
+        powerSource = powerSource?.let { runCatching { PowerSource.valueOf(it) }.getOrNull() },
     )
 
 private fun RideRecord.toEntity() =
@@ -150,4 +165,18 @@ private fun RideRecord.toEntity() =
         bikeWeightKg = bikeWeightKg,
         bikeType = bikeType.name,
         isComplete = isComplete,
+        normalizedPowerWatts = normalizedPowerWatts,
+        intensityFactor = intensityFactor,
+        trainingStressScore = trainingStressScore,
+        hrTss = hrTss,
+        trimp = trimp,
+        workKj = workKj,
+        decouplingPercent = decouplingPercent,
+        avgHeartRateBpm = avgHeartRateBpm,
+        maxHeartRateBpm = maxHeartRateBpm,
+        avgCadenceRpm = avgCadenceRpm,
+        maxPowerWatts = maxPowerWatts,
+        ftpAtRideWatts = ftpAtRideWatts,
+        lthrAtRideBpm = lthrAtRideBpm,
+        powerSource = powerSource?.name,
     )

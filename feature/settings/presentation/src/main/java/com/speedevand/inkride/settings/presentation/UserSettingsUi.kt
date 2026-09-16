@@ -1,5 +1,6 @@
 package com.speedevand.inkride.settings.presentation
 
+import com.speedevand.inkride.core.domain.settings.AutoLapMode
 import com.speedevand.inkride.core.domain.settings.BikeType
 import com.speedevand.inkride.core.domain.settings.MeasurementUnits
 import com.speedevand.inkride.core.domain.settings.UserSettings
@@ -22,6 +23,14 @@ data class UserSettingsUi(
     val maxSpeedAlert: String = "",
     val hrMinAlert: String = "",
     val hrMaxAlert: String = "",
+    // Thresholds as editable text; blank means "not set", which keeps IF and TSS
+    // unavailable rather than computed against an invented number.
+    val ftpWatts: String = "",
+    val lthrBpm: String = "",
+    val autoDetectThresholds: Boolean = true,
+    val autoLapMode: AutoLapMode = AutoLapMode.OFF,
+    val autoLapDistanceKm: String = "",
+    val autoLapIntervalMinutes: String = "",
 )
 
 fun UserSettings.toUserSettingsUi(): UserSettingsUi {
@@ -37,5 +46,11 @@ fun UserSettings.toUserSettingsUi(): UserSettingsUi {
         maxSpeedAlert = alerts.maxSpeedKmh?.let { String.format(Locale.ROOT, "%.0f", it * speedFactor) } ?: "",
         hrMinAlert = alerts.hrZoneMinBpm?.toString() ?: "",
         hrMaxAlert = alerts.hrZoneMaxBpm?.toString() ?: "",
+        ftpWatts = ftpWatts?.toString() ?: "",
+        lthrBpm = lthrBpm?.toString() ?: "",
+        autoDetectThresholds = autoDetectThresholds,
+        autoLapMode = autoLap.mode,
+        autoLapDistanceKm = autoLap.distanceKm?.let { String.format(Locale.ROOT, "%.1f", it) } ?: "",
+        autoLapIntervalMinutes = autoLap.intervalMinutes?.toString() ?: "",
     )
 }
