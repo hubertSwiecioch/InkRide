@@ -1,5 +1,6 @@
 package com.speedevand.inkride.core.domain.tracking.training
 
+import com.speedevand.inkride.core.domain.tracking.HeartRateZoneCalculator
 import com.speedevand.inkride.core.domain.tracking.PowerSource
 import kotlin.math.pow
 
@@ -16,6 +17,8 @@ import kotlin.math.pow
  */
 class TrainingLoadCalculator(
     private val resampler: SampleResampler = SampleResampler(),
+    private val heartRateZoneCalculator: HeartRateZoneCalculator = HeartRateZoneCalculator(),
+    private val powerZoneCalculator: PowerZoneCalculator = PowerZoneCalculator(),
     private val normalizedPowerWindowSeconds: Int = 30,
 ) {
     private val powerWindow = ArrayDeque<Int>()
@@ -28,6 +31,14 @@ class TrainingLoadCalculator(
     private var movingSeconds: Long = 0L
     private var workJoules: Double = 0.0
 
+    private val secondsInHrZone = mutableMapOf<Int, Long>()
+    private val secondsInPowerZone = mutableMapOf<Int, Long>()
+    private var heartRateSum: Long = 0L
+    private var heartRateSeconds: Long = 0L
+    private var currentHrZone: Int? = null
+    private var currentPowerZone: Int? = null
+    private var trimpAccumulator: Double = 0.0
+
     fun reset() {
         resampler.reset()
         powerWindow.clear()
@@ -35,6 +46,13 @@ class TrainingLoadCalculator(
         fourthPowerCount = 0L
         movingSeconds = 0L
         workJoules = 0.0
+        secondsInHrZone.clear()
+        secondsInPowerZone.clear()
+        heartRateSum = 0L
+        heartRateSeconds = 0L
+        currentHrZone = null
+        currentPowerZone = null
+        trimpAccumulator = 0.0
     }
 
     fun process(
@@ -48,7 +66,7 @@ class TrainingLoadCalculator(
     ): TrainingMetrics {
         resampler
             .accept(timestampMs, powerWatts, heartRateBpm, altitudeM, isMoving)
-            .forEach { second -> accumulate(second, powerSource) }
+            .forEach { second -> accumulate(second, powerSource, thresholds) }
 
         val normalizedPower = normalizedPower(powerSource)
         val intensityFactor =
@@ -61,20 +79,49 @@ class TrainingLoadCalculator(
                 null
             }
 
+        // hrTSS mirrors TSS's shape against the lactate-threshold heart rate, so
+        // an hour at LTHR scores 100 exactly as an hour at FTP does. Chosen over
+        // Banister's TRIMP, which needs resting heart rate and a sex coefficient
+        // this app deliberately does not collect.
+        val averageHeartRate =
+            if (heartRateSeconds > 0L) heartRateSum.toDouble() / heartRateSeconds else null
+        val hrTss =
+            averageHeartRate
+                ?.let { avg -> thresholds.lthrBpm?.takeIf { it > 0 }?.let { avg / it } }
+                ?.let { hrIf -> movingSeconds / 3600.0 * hrIf * hrIf * 100.0 }
+
         return TrainingMetrics(
             normalizedPowerWatts = normalizedPower,
             intensityFactor = intensityFactor,
             trainingStressScore = trainingStressScore,
+            hrTss = hrTss,
+            // TRIMP only exists if a strap actually reported something.
+            trimp = trimpAccumulator.takeIf { heartRateSeconds > 0L },
             workKj = workJoules / 1000.0,
+            currentHrZone = currentHrZone,
+            currentPowerZone = currentPowerZone,
+            secondsInHrZone = secondsInHrZone.toMap(),
+            secondsInPowerZone = secondsInPowerZone.toMap(),
         )
     }
 
     private fun accumulate(
         second: ResampledSecond,
         powerSource: PowerSource?,
+        thresholds: AthleteThresholds,
     ) {
         if (!second.isMoving) return
         movingSeconds++
+
+        second.heartRateBpm?.let { bpm ->
+            heartRateSum += bpm
+            heartRateSeconds++
+            val zone = heartRateZoneCalculator.zoneFor(bpm, thresholds.ageForHrZones)
+            currentHrZone = zone
+            secondsInHrZone[zone] = (secondsInHrZone[zone] ?: 0L) + 1L
+            // Edwards TRIMP: each minute counts as many times as its zone number.
+            trimpAccumulator += zone / 60.0
+        }
 
         val watts = second.powerWatts ?: return
         workJoules += watts.coerceAtLeast(0).toDouble()
@@ -89,6 +136,12 @@ class TrainingLoadCalculator(
         if (powerWindow.size == normalizedPowerWindowSeconds) {
             fourthPowerSum += powerWindow.average().pow(4)
             fourthPowerCount++
+        }
+
+        thresholds.ftpWatts?.takeIf { it > 0 }?.let { ftp ->
+            val zone = powerZoneCalculator.zoneFor(watts, ftp)
+            currentPowerZone = zone
+            secondsInPowerZone[zone] = (secondsInPowerZone[zone] ?: 0L) + 1L
         }
     }
 

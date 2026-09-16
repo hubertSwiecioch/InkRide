@@ -3,6 +3,8 @@ package com.speedevand.inkride.core.domain.tracking.training
 import assertk.assertThat
 import assertk.assertions.isBetween
 import assertk.assertions.isCloseTo
+import assertk.assertions.isEmpty
+import assertk.assertions.isEqualTo
 import assertk.assertions.isGreaterThan
 import assertk.assertions.isNotNull
 import assertk.assertions.isNull
@@ -143,5 +145,130 @@ class TrainingLoadCalculatorTest {
         assertThat(metrics.normalizedPowerWatts).isNull()
         // Only the single post-reset second counts: 200 W for 1 s = 0.2 kJ.
         assertThat(metrics.workKj).isCloseTo(0.2, 0.01)
+    }
+
+    @Test
+    fun `an hour at LTHR scores 100 hrTSS`() {
+        val calculator = TrainingLoadCalculator()
+        val hrOnly = AthleteThresholds(ftpWatts = null, lthrBpm = 160, ageForHrZones = 30)
+        var metrics = TrainingMetrics()
+
+        for (second in 0..3_600) {
+            metrics = calculator.process(second * 1000L, null, null, 160, null, true, hrOnly)
+        }
+
+        assertThat(metrics.hrTss!!).isCloseTo(100.0, 2.0)
+    }
+
+    @Test
+    fun `time accumulates into the heart-rate zone the rider is in`() {
+        val calculator = TrainingLoadCalculator()
+        val hrOnly = AthleteThresholds(ftpWatts = null, lthrBpm = 160, ageForHrZones = 30)
+        var metrics = TrainingMetrics()
+
+        // HRmax(Tanaka, 30) = 187. 120 bpm is 64 % -> zone 2.
+        for (second in 0..600) {
+            metrics = calculator.process(second * 1000L, null, null, 120, null, true, hrOnly)
+        }
+
+        assertThat(metrics.currentHrZone).isEqualTo(2)
+        assertThat(metrics.secondsInHrZone[2]!!).isBetween(595L, 605L)
+    }
+
+    @Test
+    fun `hrTSS and TRIMP are absent without a heart-rate reading`() {
+        val calculator = TrainingLoadCalculator()
+        var metrics = TrainingMetrics()
+
+        for (second in 0..600) {
+            metrics = calculator.process(second * 1000L, 200, PowerSource.MEASURED, null, null, true, thresholds)
+        }
+
+        assertThat(metrics.hrTss).isNull()
+        assertThat(metrics.trimp).isNull()
+    }
+
+    @Test
+    fun `TRIMP weights each minute by the zone it was spent in`() {
+        val calculator = TrainingLoadCalculator()
+        val hrOnly = AthleteThresholds(ftpWatts = null, lthrBpm = 160, ageForHrZones = 30)
+        var metrics = TrainingMetrics()
+
+        // Ten minutes at 170 bpm. HRmax(30) = 187, so 91 % -> zone 5, and
+        // Edwards TRIMP counts each of those minutes five times.
+        for (second in 1..600) {
+            metrics = calculator.process(second * 1000L, null, null, 170, null, true, hrOnly)
+        }
+
+        assertThat(metrics.trimp!!).isCloseTo(50.0, 0.5)
+    }
+
+    @Test
+    fun `time accumulates into the power zone the rider is in`() {
+        val calculator = TrainingLoadCalculator()
+        val atFtp = AthleteThresholds(ftpWatts = 200, lthrBpm = 160, ageForHrZones = 30)
+        var metrics = TrainingMetrics()
+
+        // 200 W against a 200 W FTP is 100 % -> zone 4.
+        for (second in 1..600) {
+            metrics = calculator.process(second * 1000L, 200, PowerSource.MEASURED, null, null, true, atFtp)
+        }
+
+        assertThat(metrics.currentPowerZone).isEqualTo(4)
+        assertThat(metrics.secondsInPowerZone[4]!!).isBetween(595L, 605L)
+    }
+
+    @Test
+    fun `a stopped rider adds no time to any zone`() {
+        val calculator = TrainingLoadCalculator()
+        val atFtp = AthleteThresholds(ftpWatts = 200, lthrBpm = 160, ageForHrZones = 30)
+        var metrics = TrainingMetrics()
+
+        for (second in 1..300) {
+            metrics = calculator.process(second * 1000L, 0, PowerSource.MEASURED, 100, null, false, atFtp)
+        }
+
+        // Standing at a light is not training time, in either zone map.
+        assertThat(metrics.secondsInHrZone).isEmpty()
+        assertThat(metrics.secondsInPowerZone).isEmpty()
+    }
+
+    @Test
+    fun `raising FTP mid-ride moves later seconds into the recomputed zone`() {
+        val calculator = TrainingLoadCalculator()
+        var metrics = TrainingMetrics()
+
+        // 200 W against FTP 200 is zone 4...
+        for (second in 1..60) {
+            metrics =
+                calculator.process(
+                    second * 1000L,
+                    200,
+                    PowerSource.MEASURED,
+                    null,
+                    null,
+                    true,
+                    AthleteThresholds(ftpWatts = 200, lthrBpm = 160, ageForHrZones = 30),
+                )
+        }
+        assertThat(metrics.currentPowerZone).isEqualTo(4)
+
+        // ...and against a raised FTP of 300 the same watts are 67 %, so zone 2.
+        // The calculator must read the thresholds it is handed each call rather
+        // than cache the ones it saw first.
+        for (second in 61..120) {
+            metrics =
+                calculator.process(
+                    second * 1000L,
+                    200,
+                    PowerSource.MEASURED,
+                    null,
+                    null,
+                    true,
+                    AthleteThresholds(ftpWatts = 300, lthrBpm = 160, ageForHrZones = 30),
+                )
+        }
+
+        assertThat(metrics.currentPowerZone).isEqualTo(2)
     }
 }
