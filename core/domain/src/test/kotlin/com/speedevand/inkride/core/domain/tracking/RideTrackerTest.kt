@@ -599,6 +599,84 @@ class RideTrackerTest {
                 .containsExactly(1_000L, 2_000L, 3_000L)
         }
 
+    @Test
+    fun `training load rides along in the tracking state`() =
+        runTest {
+            val sensor = FakeSensorDataSource()
+            val tracker =
+                newTracker(testScheduler, sensor, settings = settings.copy(ftpWatts = 200))
+
+            tracker.start()
+            repeat(120) { second ->
+                sensor.samples.emit(
+                    sampleAt(
+                        second * 1000L,
+                        latitude = 0.000072 * second,
+                        longitude = 0.0,
+                        speedFromGpsMps = 8.0,
+                        accuracy = 4.0f,
+                    ),
+                )
+            }
+
+            assertThat(tracker.state.value.trainingMetrics.workKj).isGreaterThan(0.0)
+        }
+
+    @Test
+    fun `finishing a ride writes the thresholds that were in force`() =
+        runTest {
+            val sensor = FakeSensorDataSource()
+            val history = FakeHistoryRepository()
+            val tracker =
+                newTracker(
+                    testScheduler,
+                    sensor,
+                    history,
+                    settings = settings.copy(ftpWatts = 210, lthrBpm = 168),
+                )
+
+            tracker.start()
+            repeat(120) { second ->
+                sensor.samples.emit(
+                    sampleAt(
+                        second * 1000L,
+                        latitude = 0.000072 * second,
+                        longitude = 0.0,
+                        speedFromGpsMps = 8.0,
+                        accuracy = 4.0f,
+                    ),
+                )
+            }
+            tracker.stop()
+
+            val saved = history.saved.single()
+            // Pinned at ride time so a later FTP change cannot rewrite this ride's load.
+            assertThat(saved.ftpAtRideWatts).isEqualTo(210)
+            assertThat(saved.lthrAtRideBpm).isEqualTo(168)
+        }
+
+    @Test
+    fun `training load resets between rides`() =
+        runTest {
+            val sensor = FakeSensorDataSource()
+            val tracker = newTracker(testScheduler, sensor, settings = settings.copy(ftpWatts = 200))
+
+            tracker.start()
+            repeat(60) { second ->
+                sensor.samples.emit(
+                    sampleAt(second * 1000L, latitude = 0.000072 * second, speedFromGpsMps = 8.0, accuracy = 4.0f),
+                )
+            }
+            val firstRideWork = tracker.state.value.trainingMetrics.workKj
+            assertThat(firstRideWork).isGreaterThan(0.0)
+            tracker.stop()
+
+            tracker.start()
+
+            // A second ride must not inherit the first one's accumulated load.
+            assertThat(tracker.state.value.trainingMetrics.workKj).isEqualTo(0.0)
+        }
+
     private fun newTracker(
         scheduler: TestCoroutineScheduler,
         sensor: FakeSensorDataSource,

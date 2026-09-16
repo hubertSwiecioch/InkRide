@@ -15,6 +15,10 @@ import com.speedevand.inkride.core.domain.onFailure
 import com.speedevand.inkride.core.domain.onSuccess
 import com.speedevand.inkride.core.domain.settings.UserSettings
 import com.speedevand.inkride.core.domain.settings.UserSettingsRepository
+import com.speedevand.inkride.core.domain.tracking.training.AthleteThresholds
+import com.speedevand.inkride.core.domain.tracking.training.ThresholdDetector
+import com.speedevand.inkride.core.domain.tracking.training.TrainingLoadCalculator
+import com.speedevand.inkride.core.domain.tracking.training.TrainingMetrics
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -59,6 +63,9 @@ data class TrackingState(
     // Kalman-filtered position instead of requesting a second, redundant GPS
     // fix while a ride is already active.
     val currentPosition: LocationFix? = null,
+    // Training load for the ride so far. Fields inside are null when their
+    // inputs are absent; see TrainingMetrics.
+    val trainingMetrics: TrainingMetrics = TrainingMetrics(),
 )
 
 /**
@@ -84,6 +91,8 @@ class RideTracker(
     private val userSettingsRepository: UserSettingsRepository,
     private val routeFollower: RouteFollower = RouteFollower(),
     private val heartRateFilter: HeartRateFilter = HeartRateFilter(),
+    private val trainingLoadCalculator: TrainingLoadCalculator = TrainingLoadCalculator(),
+    private val thresholdDetector: ThresholdDetector = ThresholdDetector(),
     private val minSaveDistanceKm: Double = 0.01,
     // Smallest segment (km) that closes into an automatic final lap at stop.
     private val minLapDistanceKm: Double = 0.01,
@@ -300,6 +309,7 @@ class RideTracker(
         sensorDataSource.stop()
         bleSensorDataSource.disconnect()
         metricsCalculator.reset()
+        trainingLoadCalculator.reset()
         lowSpeedSinceMs = null
         lastCadenceUpdateAtMs = null
         latestMeasuredPowerWatts = null
@@ -321,6 +331,7 @@ class RideTracker(
                 val route = _state.value.activeRoute
                 sessionStartMs = System.currentTimeMillis()
                 metricsCalculator.reset()
+                trainingLoadCalculator.reset()
                 lowSpeedSinceMs = null
                 lastCadenceUpdateAtMs = null
                 latestMeasuredPowerWatts = null
@@ -527,6 +538,17 @@ class RideTracker(
                                 isPaused = isPaused,
                                 measuredPowerWatts = measuredPowerOrNullIfStale(sample.timestampMs),
                             )
+                        val thresholds = AthleteThresholds.from(latestSettings)
+                        val training =
+                            trainingLoadCalculator.process(
+                                timestampMs = sample.timestampMs,
+                                powerWatts = baseMetrics.powerWatts,
+                                powerSource = baseMetrics.powerSource,
+                                heartRateBpm = _state.value.metrics.heartRateBpm,
+                                altitudeM = baseMetrics.altitudeM,
+                                isMoving = baseMetrics.isMoving && !isPaused,
+                                thresholds = thresholds,
+                            )
                         val autoStatus =
                             evaluateAutoPause(
                                 statusBefore,
@@ -563,7 +585,13 @@ class RideTracker(
                                     } else {
                                         current.currentPosition
                                     }
-                                current.copy(status = resolved, metrics = metrics, routeProgress = progress, currentPosition = position)
+                                current.copy(
+                                    status = resolved,
+                                    metrics = metrics,
+                                    routeProgress = progress,
+                                    currentPosition = position,
+                                    trainingMetrics = training,
+                                )
                             }
                         recordTrackPoint(newState.status, sample, newState.metrics)
                         recordRideSample(newState.status, sample, newState.metrics)
@@ -764,6 +792,7 @@ class RideTracker(
 
         val endedAt = System.currentTimeMillis()
         val settings = latestSettings
+        val training = _state.value.trainingMetrics
         val isLongEnough = metrics.distanceKm >= minSaveDistanceKm
 
         scope.launch {
@@ -776,7 +805,7 @@ class RideTracker(
                 // plain insert so the ride is not lost along with its placeholder.
                 if (!isLongEnough) return@launch
                 historyRepository
-                    .save(rideRecord(0L, metrics, startedAt, endedAt, settings, isComplete = true))
+                    .save(rideRecord(0L, metrics, training, startedAt, endedAt, settings, isComplete = true))
                     .onSuccess { newId -> saveRideChildren(newId, points, laps, tailSamples) }
                 return@launch
             }
@@ -791,9 +820,40 @@ class RideTracker(
                 sampleRepository.saveSamples(rideId, tailSamples)
             }
             historyRepository
-                .finishRide(rideRecord(rideId, metrics, startedAt, endedAt, settings, isComplete = true))
+                .finishRide(rideRecord(rideId, metrics, training, startedAt, endedAt, settings, isComplete = true))
                 .onSuccess { saveRideChildren(rideId, points, laps, samples = emptyList()) }
+            proposeThresholds(rideId, settings)
         }
+    }
+
+    /**
+     * Looks for a new FTP or LTHR in the ride that just finished and records it
+     * as a pending candidate. Never applied on its own: a threshold is the
+     * rider's to accept, and silently raising it would rewrite what every later
+     * ride's TSS means without them ever asking for it.
+     *
+     * Runs after the tail flush so the detector sees the whole stream, and reads
+     * it back from storage rather than from memory — what actually reached disk
+     * is what post-ride analysis will use.
+     */
+    private suspend fun proposeThresholds(
+        rideId: Long,
+        settings: UserSettings,
+    ) {
+        if (!settings.autoDetectThresholds) return
+        val samples =
+            when (val result = sampleRepository.getSamples(rideId)) {
+                is Result.Success -> result.data
+                is Result.Error -> return
+            }
+        val proposal = thresholdDetector.detect(samples, AthleteThresholds.from(settings))
+        if (proposal.ftpWatts == null && proposal.lthrBpm == null) return
+        userSettingsRepository.save(
+            settings.copy(
+                pendingFtpWatts = proposal.ftpWatts ?: settings.pendingFtpWatts,
+                pendingLthrBpm = proposal.lthrBpm ?: settings.pendingLthrBpm,
+            ),
+        )
     }
 
     private suspend fun saveRideChildren(
@@ -816,26 +876,41 @@ class RideTracker(
     private fun rideRecord(
         id: Long,
         metrics: RideMetrics,
+        training: TrainingMetrics,
         startedAt: Long,
         endedAt: Long,
         settings: UserSettings,
         isComplete: Boolean,
-    ) = RideRecord(
-        id = id,
-        startTimestamp = startedAt,
-        endTimestamp = endedAt,
-        distanceKm = metrics.distanceKm,
-        movingTimeSeconds = metrics.movingTimeSeconds,
-        elapsedTimeSeconds = metrics.elapsedTimeSeconds,
-        averageSpeedKmh = metrics.averageSpeedKmh,
-        maxSpeedKmh = metrics.maxSpeedKmh,
-        elevationGainM = metrics.elevationGainM,
-        caloriesKcal = metrics.caloriesKcal,
-        averagePowerWatts = metrics.averagePowerWatts,
-        bikeWeightKg = settings.bikeWeightKg,
-        bikeType = settings.bikeType,
-        isComplete = isComplete,
-    )
+    ) = AthleteThresholds.from(settings).let { thresholds ->
+        RideRecord(
+            id = id,
+            startTimestamp = startedAt,
+            endTimestamp = endedAt,
+            distanceKm = metrics.distanceKm,
+            movingTimeSeconds = metrics.movingTimeSeconds,
+            elapsedTimeSeconds = metrics.elapsedTimeSeconds,
+            averageSpeedKmh = metrics.averageSpeedKmh,
+            maxSpeedKmh = metrics.maxSpeedKmh,
+            elevationGainM = metrics.elevationGainM,
+            caloriesKcal = metrics.caloriesKcal,
+            averagePowerWatts = metrics.averagePowerWatts,
+            bikeWeightKg = settings.bikeWeightKg,
+            bikeType = settings.bikeType,
+            isComplete = isComplete,
+            normalizedPowerWatts = training.normalizedPowerWatts,
+            intensityFactor = training.intensityFactor,
+            trainingStressScore = training.trainingStressScore,
+            hrTss = training.hrTss,
+            trimp = training.trimp,
+            workKj = training.workKj,
+            maxPowerWatts = metrics.powerWatts.takeIf { it > 0 },
+            powerSource = metrics.powerSource,
+            // Pinned at ride time: raising FTP later must not rewrite the
+            // training load of a ride already in the books.
+            ftpAtRideWatts = thresholds.ftpWatts,
+            lthrAtRideBpm = thresholds.lthrBpm,
+        )
+    }
 
     /**
      * Closes rides a previous process left open. Called once at app start —
