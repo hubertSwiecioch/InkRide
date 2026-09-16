@@ -36,6 +36,7 @@ class BleSensorsViewModel(
                     it.copy(
                         pairedHrmAddress = settings.pairedHrmAddress,
                         pairedCadenceAddress = settings.pairedCadenceAddress,
+                        pairedPowerAddress = settings.pairedPowerAddress,
                     )
                 }
             }

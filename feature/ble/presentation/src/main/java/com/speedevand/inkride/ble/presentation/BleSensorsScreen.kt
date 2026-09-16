@@ -137,6 +137,14 @@ fun BleSensorsScreen(
                 state = state,
                 onAction = onAction,
             )
+            HorizontalDividerMMD()
+            SensorSection(
+                title = stringResource(R.string.ble_section_power),
+                type = BleSensorType.POWER,
+                pairedAddress = state.pairedPowerAddress,
+                state = state,
+                onAction = onAction,
+            )
         }
     }
 }
