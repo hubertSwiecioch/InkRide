@@ -221,6 +221,93 @@ class RideMetricsCalculatorFullRideSimulationTest {
     }
 
     /**
+     * A tunnel long enough to leave [RideMetricsCalculator]'s speed validity
+     * window far behind: while the gap lasts the speed readout must blank and
+     * movement must be withdrawn, and distance must stop growing — there is no
+     * evidence of any of it. What the rider actually covered underground is
+     * credited in one go on the first fix back, deliberately.
+     */
+    @Test
+    fun `a GPS dropout freezes distance during the gap and credits the straight line on return`() {
+        val calculator = RideMetricsCalculator()
+        val ride =
+            RideSimulationBuilder.build(
+                listOf(
+                    SimPhase("approach", SimTerrain.FLAT, speedKmh = 25.0, durationMs = 60_000L),
+                    SimPhase("tunnel", SimTerrain.FLAT, speedKmh = 25.0, durationMs = 120_000L, gpsDropout = true),
+                    SimPhase("exit", SimTerrain.FLAT, speedKmh = 25.0, durationMs = 60_000L),
+                ),
+            )
+
+        val tunnel = ride.phases.first { it.name == "tunnel" }
+        val exit = ride.phases.first { it.name == "exit" }
+        var distanceAtTunnelStartKm = 0.0
+        var duringTunnel = RideMetrics()
+        var last = RideMetrics()
+
+        ride.samples.forEachIndexed { index, sample ->
+            last = calculator.process(sample, settings)
+            if (index == tunnel.startSampleIndex) distanceAtTunnelStartKm = last.distanceKm
+            // Well past speedValidityMs into the gap.
+            if (index == tunnel.endSampleIndex) duringTunnel = last
+        }
+
+        // Inside the gap: speed blanked, movement withdrawn, distance parked.
+        assertThat(duringTunnel.isSpeedStale).isTrue()
+        assertThat(duringTunnel.currentSpeedKmh).isEqualTo(0.0)
+        assertThat(duringTunnel.isMoving).isFalse()
+        assertThat(duringTunnel.distanceKm).isCloseTo(distanceAtTunnelStartKm, 0.001)
+
+        // On return the straight-line displacement across the gap IS credited. This is
+        // deliberate: it is the best estimate across the gap, and moving time is
+        // credited to match so the moving average is not inflated. Asserted against
+        // the gap's own ground truth rather than as "the total grew": the "exit"
+        // phase alone would satisfy a bare inequality whether or not the gap was
+        // ever credited.
+        val creditedAfterGapM = (last.distanceKm - duringTunnel.distanceKm) * 1000.0
+        val gapPlusExitGroundTruthM = tunnel.distanceM + exit.distanceM
+        assertThat(creditedAfterGapM).isCloseTo(gapPlusExitGroundTruthM, gapPlusExitGroundTruthM * 0.02)
+        assertThat(creditedAfterGapM).isGreaterThan(exit.distanceM * 1.5)
+        // The matching moving time: the gap's ~120s is credited alongside its
+        // distance, so the moving average is not inflated by counting the
+        // underground kilometre against only the exit phase's seconds.
+        val creditedMovingSeconds = last.movingTimeSeconds - duringTunnel.movingTimeSeconds
+        assertThat(creditedMovingSeconds).isGreaterThanOrEqualTo(120L)
+    }
+
+    /**
+     * A red light: GPS keeps reporting, so nothing is stale — but every fix
+     * lands on the same spot. Neither distance nor elevation may drift on
+     * standing noise, and movement must read as stopped.
+     */
+    @Test
+    fun `a long stop adds no distance and fabricates no elevation`() {
+        val calculator = RideMetricsCalculator()
+        val ride =
+            RideSimulationBuilder.build(
+                listOf(
+                    SimPhase("roll up", SimTerrain.FLAT, speedKmh = 20.0, durationMs = 60_000L),
+                    SimPhase("red light", SimTerrain.STOP, durationMs = 90_000L),
+                    SimPhase("pull away", SimTerrain.FLAT, speedKmh = 20.0, durationMs = 60_000L),
+                ),
+            )
+
+        val stop = ride.phases.first { it.name == "red light" }
+        var beforeStop = RideMetrics()
+        var endOfStop = RideMetrics()
+
+        ride.samples.forEachIndexed { index, sample ->
+            val metrics = calculator.process(sample, settings)
+            if (index == stop.startSampleIndex - 1) beforeStop = metrics
+            if (index == stop.endSampleIndex) endOfStop = metrics
+        }
+
+        assertThat(endOfStop.distanceKm).isCloseTo(beforeStop.distanceKm, 0.005)
+        assertThat(endOfStop.elevationGainM).isCloseTo(beforeStop.elevationGainM, 0.5)
+        assertThat(endOfStop.isMoving).isFalse()
+    }
+
+    /**
      * Independent physics reference (no acceleration term, no drivetrain-loss
      * factor beyond the documented 1.05x) using the same public Crr/CdA
      * constants [PowerEstimator] documents for [BikeType.ROAD], to bound
