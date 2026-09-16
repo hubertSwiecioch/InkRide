@@ -13,6 +13,6 @@ val trackingDataModule =
         singleOf(::CaloriesEstimator)
         single { RideMetricsCalculator(get()) }
         // (sensorDataSource, metricsCalculator, historyRepository, trackPointRepository,
-        //  lapRepository, bleSensorDataSource, userSettingsRepository)
-        single { RideTracker(get(), get(), get(), get(), get(), get(), get()) }
+        //  sampleRepository, lapRepository, bleSensorDataSource, userSettingsRepository)
+        single { RideTracker(get(), get(), get(), get(), get(), get(), get(), get()) }
     }

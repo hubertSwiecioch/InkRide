@@ -43,6 +43,55 @@ class RoomRideHistoryRepository(
             Result.Error(DataError.Local.UNKNOWN)
         }
 
+    override suspend fun startRide(startedAt: Long): Result<Long, DataError.Local> =
+        try {
+            Result.Success(
+                dao.insert(
+                    // Zeroed aggregates: nothing has been ridden yet. endTimestamp
+                    // mirrors the start so the row is never ordered as if it ended
+                    // at the epoch should it show up in a raw query.
+                    RideHistoryEntity(
+                        startTimestamp = startedAt,
+                        endTimestamp = startedAt,
+                        distanceKm = 0.0,
+                        movingTimeSeconds = 0L,
+                        elapsedTimeSeconds = 0L,
+                        averageSpeedKmh = 0.0,
+                        maxSpeedKmh = 0.0,
+                        elevationGainM = 0.0,
+                        caloriesKcal = 0.0,
+                        isComplete = false,
+                    ),
+                ),
+            )
+        } catch (e: SQLiteFullException) {
+            Log.e(TAG, "startRide failed: disk full", e)
+            Result.Error(DataError.Local.DISK_FULL)
+        } catch (e: Exception) {
+            Log.e(TAG, "startRide failed", e)
+            Result.Error(DataError.Local.UNKNOWN)
+        }
+
+    override suspend fun finishRide(ride: RideRecord): EmptyResult<DataError.Local> =
+        try {
+            dao.update(ride.toEntity().copy(isComplete = true))
+            Result.Success(Unit)
+        } catch (e: SQLiteFullException) {
+            Log.e(TAG, "finishRide failed: disk full", e)
+            Result.Error(DataError.Local.DISK_FULL)
+        } catch (e: Exception) {
+            Log.e(TAG, "finishRide failed for id=${ride.id}", e)
+            Result.Error(DataError.Local.UNKNOWN)
+        }
+
+    override suspend fun getUnfinishedRides(): Result<List<RideRecord>, DataError.Local> =
+        try {
+            Result.Success(dao.getUnfinished().map { it.toRideRecord() })
+        } catch (e: Exception) {
+            Log.e(TAG, "getUnfinishedRides failed", e)
+            Result.Error(DataError.Local.UNKNOWN)
+        }
+
     override suspend fun deleteById(id: Long): EmptyResult<DataError.Local> =
         try {
             dao.deleteById(id)
@@ -82,6 +131,7 @@ private fun RideHistoryEntity.toRideRecord() =
             } catch (e: Exception) {
                 BikeType.ROAD
             },
+        isComplete = isComplete,
     )
 
 private fun RideRecord.toEntity() =
@@ -99,4 +149,5 @@ private fun RideRecord.toEntity() =
         averagePowerWatts = averagePowerWatts,
         bikeWeightKg = bikeWeightKg,
         bikeType = bikeType.name,
+        isComplete = isComplete,
     )

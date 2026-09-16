@@ -1,16 +1,20 @@
 package com.speedevand.inkride.core.domain.tracking
 
+import com.speedevand.inkride.core.domain.Result
 import com.speedevand.inkride.core.domain.ble.BleSample
 import com.speedevand.inkride.core.domain.ble.BleSensorDataSource
 import com.speedevand.inkride.core.domain.history.RideHistoryRepository
 import com.speedevand.inkride.core.domain.history.RideLapRepository
 import com.speedevand.inkride.core.domain.history.RideRecord
+import com.speedevand.inkride.core.domain.history.RideSample
+import com.speedevand.inkride.core.domain.history.RideSampleRepository
 import com.speedevand.inkride.core.domain.history.RideTrackPoint
 import com.speedevand.inkride.core.domain.history.RideTrackPointRepository
 import com.speedevand.inkride.core.domain.onFailure
 import com.speedevand.inkride.core.domain.onSuccess
 import com.speedevand.inkride.core.domain.settings.UserSettings
 import com.speedevand.inkride.core.domain.settings.UserSettingsRepository
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -73,6 +77,7 @@ class RideTracker(
     private val metricsCalculator: RideMetricsCalculator,
     private val historyRepository: RideHistoryRepository,
     private val trackPointRepository: RideTrackPointRepository,
+    private val sampleRepository: RideSampleRepository,
     private val lapRepository: RideLapRepository,
     private val bleSensorDataSource: BleSensorDataSource,
     private val userSettingsRepository: UserSettingsRepository,
@@ -89,6 +94,9 @@ class RideTracker(
     private val autoPauseSpeedKmh: Double = 1.5,
     private val autoResumeSpeedKmh: Double = 2.5,
     private val autoPauseDelayMs: Long = 3_000L,
+    // How often the buffered 1 Hz stream is written out. Injectable so an
+    // instrumented test can watch a flush land without riding for a real minute.
+    private val sampleFlushIntervalMs: Long = 60_000L,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) {
     private val _state = MutableStateFlow(TrackingState())
@@ -141,6 +149,33 @@ class RideTracker(
     // whichever thread calls stop().
     private val trackPoints = mutableListOf<RideTrackPoint>()
     private val trackPointsLock = Any()
+
+    // Row id of the in-progress ride, allocated at start so samples can be
+    // flushed during the ride instead of being held hostage until stop().
+    // Written by the coroutine that performs the insert, read by the sample
+    // collector, so @Volatile for cross-thread visibility.
+    @Volatile
+    private var activeRideId: Long? = null
+
+    // The same id as a value stop() can await: the insert is asynchronous, so a
+    // ride stopped moments after starting would otherwise find activeRideId
+    // still null and have nothing to finish. Completes with null when the row
+    // could not be created at all.
+    @Volatile
+    private var activeRideIdDeferred: CompletableDeferred<Long?>? = null
+
+    // The 1 Hz stream, buffered between flushes. Appended by the sample
+    // collector and drained by the periodic flush or by stop(), so guarded.
+    private val pendingSamples = mutableListOf<RideSample>()
+    private val pendingSamplesLock = Any()
+    private var lastSampleStoredAtMs: Long = 0L
+
+    // Zero rather than the session start on purpose: the first sample of a ride
+    // is always further from 0 than any flush interval, so it is written out
+    // immediately instead of waiting a minute. A ride killed in its opening
+    // seconds then still has something on disk to recover.
+    private var lastSampleFlushAtMs: Long = 0L
+    private val sampleIntervalMs: Long = 1_000L
 
     // Ride-total values captured at the previous lap boundary; the next lap is
     // recorded as the delta from these. Reset to 0 at the start of each ride.
@@ -245,7 +280,7 @@ class RideTracker(
             } else {
                 current.laps
             }
-        saveRide(current.metrics, sessionStartMs, laps)
+        finishRide(current.metrics, sessionStartMs, laps)
         collectJob?.cancel()
         collectJob = null
         sensorDataSource.stop()
@@ -256,6 +291,7 @@ class RideTracker(
         heartRateFilter.reset()
         resetAlertState()
         resetLapBaseline()
+        resetSampleBuffer()
         _state.value = TrackingState()
     }
 
@@ -275,6 +311,22 @@ class RideTracker(
                 resetAlertState()
                 resetLapBaseline()
                 synchronized(trackPointsLock) { trackPoints.clear() }
+                resetSampleBuffer()
+                // Allocate the ride row up front: samples need somewhere to go
+                // immediately, and a process killed mid-ride must leave a
+                // recoverable row behind rather than nothing at all.
+                val rideIdDeferred = CompletableDeferred<Long?>()
+                activeRideIdDeferred = rideIdDeferred
+                val startedAt = sessionStartMs
+                scope.launch {
+                    val id =
+                        when (val result = historyRepository.startRide(startedAt)) {
+                            is Result.Success -> result.data
+                            is Result.Error -> null
+                        }
+                    activeRideId = id
+                    rideIdDeferred.complete(id)
+                }
                 _state.value =
                     TrackingState(
                         status = TrackingStatus.TRACKING,
@@ -332,6 +384,60 @@ class RideTracker(
                 ),
             )
         }
+    }
+
+    /**
+     * Buffers one sample per [sampleIntervalMs] while TRACKING and flushes the
+     * buffer every [sampleFlushIntervalMs], so a killed process loses at most a
+     * minute of a ride rather than all of it.
+     *
+     * Samples are buffered even before the ride row's id has come back from the
+     * insert — only the flush waits on it — so the opening seconds of a ride are
+     * not dropped just because the database was slower than the first fix.
+     */
+    private fun recordRideSample(
+        status: TrackingStatus,
+        sample: RideSensorSample,
+        metrics: RideMetrics,
+    ) {
+        if (status != TrackingStatus.TRACKING) return
+        if (sample.timestampMs - lastSampleStoredAtMs < sampleIntervalMs) return
+        lastSampleStoredAtMs = sample.timestampMs
+        val rideId = activeRideId
+
+        val batch =
+            synchronized(pendingSamplesLock) {
+                pendingSamples +=
+                    RideSample(
+                        timestampMs = sample.timestampMs,
+                        latitude = sample.latitude,
+                        longitude = sample.longitude,
+                        altitudeM = metrics.altitudeM,
+                        speedKmh = metrics.currentSpeedKmh,
+                        gradePercent = metrics.gradePercent,
+                        powerWatts = metrics.powerWatts,
+                        // Filled in once RideMetrics carries a power source of its own.
+                        powerSource = null,
+                        heartRateBpm = metrics.heartRateBpm,
+                        cadenceRpm = metrics.cadenceRpm,
+                    )
+                if (rideId == null || sample.timestampMs - lastSampleFlushAtMs < sampleFlushIntervalMs) {
+                    null
+                } else {
+                    lastSampleFlushAtMs = sample.timestampMs
+                    ArrayList(pendingSamples).also { pendingSamples.clear() }
+                }
+            }
+
+        if (batch != null && rideId != null) {
+            scope.launch { sampleRepository.saveSamples(rideId, batch) }
+        }
+    }
+
+    private fun resetSampleBuffer() {
+        synchronized(pendingSamplesLock) { pendingSamples.clear() }
+        lastSampleStoredAtMs = 0L
+        lastSampleFlushAtMs = 0L
     }
 
     private fun launchCollection() {
@@ -432,6 +538,7 @@ class RideTracker(
                                 current.copy(status = resolved, metrics = metrics, routeProgress = progress, currentPosition = position)
                             }
                         recordTrackPoint(newState.status, sample, newState.metrics)
+                        recordRideSample(newState.status, sample, newState.metrics)
                         evaluateAlerts(newState.status, newState.metrics)
                         evaluateOffRoute(newState.status, newState.routeProgress)
                     }
@@ -585,47 +692,197 @@ class RideTracker(
         }
     }
 
-    private fun saveRide(
+    /**
+     * Closes the row [startNewSession] allocated: flushes the tail of the sample
+     * buffer, writes the final aggregates and marks the ride complete — or
+     * deletes the row outright when the rider never covered
+     * [minSaveDistanceKm], which cascades the samples and track points away with
+     * it.
+     */
+    private fun finishRide(
         metrics: RideMetrics,
         startedAt: Long,
         laps: List<LapRecord>,
     ) {
-        // Snapshot and clear the track buffer up front (synchronously, before the
-        // collection job is cancelled) so a too-short ride still drops its points
+        // Snapshot and clear both buffers up front (synchronously, before the
+        // collection job is cancelled) so a too-short ride still drops its data
         // and the next ride starts clean.
         val points =
             synchronized(trackPointsLock) {
                 ArrayList(trackPoints).also { trackPoints.clear() }
             }
-        if (metrics.distanceKm < minSaveDistanceKm) return
+        val tailSamples =
+            synchronized(pendingSamplesLock) {
+                ArrayList(pendingSamples).also { pendingSamples.clear() }
+            }
+        val rideIdDeferred = activeRideIdDeferred
+        activeRideIdDeferred = null
+        activeRideId = null
+        lastSampleStoredAtMs = 0L
+        lastSampleFlushAtMs = 0L
+
         val endedAt = System.currentTimeMillis()
         val settings = latestSettings
+        val isLongEnough = metrics.distanceKm >= minSaveDistanceKm
+
         scope.launch {
+            // The insert is asynchronous, so a ride stopped moments after
+            // starting has to wait for its id rather than assume there isn't one.
+            val rideId = rideIdDeferred?.await()
+
+            if (rideId == null) {
+                // The row was never created (the insert failed). Fall back to a
+                // plain insert so the ride is not lost along with its placeholder.
+                if (!isLongEnough) return@launch
+                historyRepository
+                    .save(rideRecord(0L, metrics, startedAt, endedAt, settings, isComplete = true))
+                    .onSuccess { newId -> saveRideChildren(newId, points, laps, tailSamples) }
+                return@launch
+            }
+
+            if (!isLongEnough) {
+                // Cascading foreign keys take the samples and track points with it.
+                historyRepository.deleteById(rideId)
+                return@launch
+            }
+
+            if (tailSamples.isNotEmpty()) {
+                sampleRepository.saveSamples(rideId, tailSamples)
+            }
             historyRepository
-                .save(
-                    RideRecord(
-                        id = 0L,
-                        startTimestamp = startedAt,
-                        endTimestamp = endedAt,
-                        distanceKm = metrics.distanceKm,
-                        movingTimeSeconds = metrics.movingTimeSeconds,
-                        elapsedTimeSeconds = metrics.elapsedTimeSeconds,
-                        averageSpeedKmh = metrics.averageSpeedKmh,
-                        maxSpeedKmh = metrics.maxSpeedKmh,
-                        elevationGainM = metrics.elevationGainM,
-                        caloriesKcal = metrics.caloriesKcal,
-                        averagePowerWatts = metrics.averagePowerWatts,
-                        bikeWeightKg = settings.bikeWeightKg,
-                        bikeType = settings.bikeType,
-                    ),
-                ).onSuccess { rideId ->
-                    if (points.isNotEmpty()) {
-                        trackPointRepository.savePoints(rideId, points)
-                    }
-                    if (laps.isNotEmpty()) {
-                        lapRepository.saveLaps(rideId, laps)
+                .finishRide(rideRecord(rideId, metrics, startedAt, endedAt, settings, isComplete = true))
+                .onSuccess { saveRideChildren(rideId, points, laps, samples = emptyList()) }
+        }
+    }
+
+    private suspend fun saveRideChildren(
+        rideId: Long,
+        points: List<RideTrackPoint>,
+        laps: List<LapRecord>,
+        samples: List<RideSample>,
+    ) {
+        if (samples.isNotEmpty()) {
+            sampleRepository.saveSamples(rideId, samples)
+        }
+        if (points.isNotEmpty()) {
+            trackPointRepository.savePoints(rideId, points)
+        }
+        if (laps.isNotEmpty()) {
+            lapRepository.saveLaps(rideId, laps)
+        }
+    }
+
+    private fun rideRecord(
+        id: Long,
+        metrics: RideMetrics,
+        startedAt: Long,
+        endedAt: Long,
+        settings: UserSettings,
+        isComplete: Boolean,
+    ) = RideRecord(
+        id = id,
+        startTimestamp = startedAt,
+        endTimestamp = endedAt,
+        distanceKm = metrics.distanceKm,
+        movingTimeSeconds = metrics.movingTimeSeconds,
+        elapsedTimeSeconds = metrics.elapsedTimeSeconds,
+        averageSpeedKmh = metrics.averageSpeedKmh,
+        maxSpeedKmh = metrics.maxSpeedKmh,
+        elevationGainM = metrics.elevationGainM,
+        caloriesKcal = metrics.caloriesKcal,
+        averagePowerWatts = metrics.averagePowerWatts,
+        bikeWeightKg = settings.bikeWeightKg,
+        bikeType = settings.bikeType,
+        isComplete = isComplete,
+    )
+
+    /**
+     * Closes rides a previous process left open. Called once at app start —
+     * deliberately not from `init`, because Koin constructs this singleton on the
+     * main thread and database I/O there would block launch.
+     *
+     * A recovered ride is explicitly a best-effort reconstruction from the
+     * samples that made it to disk, not a claim of full fidelity: elevation gain
+     * and calories keep whatever the row already held, because neither can be
+     * rebuilt from positions alone.
+     */
+    fun recoverUnfinishedRides() {
+        scope.launch {
+            historyRepository.getUnfinishedRides().onSuccess { rides ->
+                rides.forEach { ride ->
+                    val samples =
+                        when (val result = sampleRepository.getSamples(ride.id)) {
+                            is Result.Success -> result.data
+                            is Result.Error -> emptyList()
+                        }
+                    val distanceKm = distanceFromSamplesKm(samples)
+                    if (distanceKm >= minSaveDistanceKm) {
+                        historyRepository.finishRide(rideFromSamples(ride, samples, distanceKm))
+                    } else {
+                        // Nothing worth keeping: a start that never went anywhere.
+                        historyRepository.deleteById(ride.id)
                     }
                 }
+            }
         }
+    }
+
+    /** Straight-line distance along the recovered sample positions. */
+    private fun distanceFromSamplesKm(samples: List<RideSample>): Double {
+        var meters = 0.0
+        var previousLat: Double? = null
+        var previousLng: Double? = null
+        for (sample in samples) {
+            val lat = sample.latitude ?: continue
+            val lng = sample.longitude ?: continue
+            val priorLat = previousLat
+            val priorLng = previousLng
+            if (priorLat != null && priorLng != null) {
+                meters += haversineMeters(priorLat, priorLng, lat, lng)
+            }
+            previousLat = lat
+            previousLng = lng
+        }
+        return meters / 1000.0
+    }
+
+    /**
+     * Rebuilds the aggregates the metrics calculator would have produced, from
+     * the samples that survived. Moving time counts only samples whose recorded
+     * speed cleared [autoPauseSpeedKmh], so a ride that spent ten minutes at a
+     * red light does not come back claiming them as riding time.
+     */
+    private fun rideFromSamples(
+        ride: RideRecord,
+        samples: List<RideSample>,
+        distanceKm: Double,
+    ): RideRecord {
+        val elapsedSeconds =
+            if (samples.size < 2) {
+                0L
+            } else {
+                (samples.last().timestampMs - samples.first().timestampMs) / 1000L
+            }
+        val movingSeconds =
+            samples.count { (it.speedKmh ?: 0.0) > autoPauseSpeedKmh }.toLong() *
+                (sampleIntervalMs / 1000L)
+        val maxSpeedKmh = samples.mapNotNull { it.speedKmh }.maxOrNull() ?: 0.0
+        val averageSpeedKmh = if (movingSeconds > 0L) distanceKm / (movingSeconds / 3600.0) else 0.0
+        val averagePowerWatts =
+            samples
+                .mapNotNull { it.powerWatts }
+                .takeIf { it.isNotEmpty() }
+                ?.average()
+                ?.toInt() ?: 0
+        return ride.copy(
+            endTimestamp = samples.lastOrNull()?.timestampMs ?: ride.endTimestamp,
+            distanceKm = distanceKm,
+            movingTimeSeconds = movingSeconds,
+            elapsedTimeSeconds = elapsedSeconds,
+            averageSpeedKmh = averageSpeedKmh,
+            maxSpeedKmh = maxSpeedKmh,
+            averagePowerWatts = averagePowerWatts,
+            isComplete = true,
+        )
     }
 }

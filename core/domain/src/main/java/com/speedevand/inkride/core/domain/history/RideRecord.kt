@@ -16,4 +16,8 @@ data class RideRecord(
     val averagePowerWatts: Int = 0,
     val bikeWeightKg: Double = 10.0,
     val bikeType: BikeType = BikeType.ROAD,
+    // False while the ride is still in progress. Only complete rides appear in
+    // history and lifetime totals; an incomplete one is a row a previous process
+    // left behind, for [RideTracker.recoverUnfinishedRides] to close or discard.
+    val isComplete: Boolean = true,
 )

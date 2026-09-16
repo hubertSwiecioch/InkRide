@@ -14,6 +14,8 @@ import com.speedevand.inkride.core.domain.ble.BleSensorDataSource
 import com.speedevand.inkride.core.domain.history.RideHistoryRepository
 import com.speedevand.inkride.core.domain.history.RideLapRepository
 import com.speedevand.inkride.core.domain.history.RideRecord
+import com.speedevand.inkride.core.domain.history.RideSample
+import com.speedevand.inkride.core.domain.history.RideSampleRepository
 import com.speedevand.inkride.core.domain.history.RideTrackPoint
 import com.speedevand.inkride.core.domain.history.RideTrackPointRepository
 import com.speedevand.inkride.core.domain.settings.UserSettings
@@ -235,6 +237,12 @@ private fun testRideTracker(): RideTracker =
 
                 override suspend fun save(ride: RideRecord) = Result.Success(1L)
 
+                override suspend fun startRide(startedAt: Long) = Result.Success(1L)
+
+                override suspend fun finishRide(ride: RideRecord): EmptyResult<DataError.Local> = Result.Success(Unit)
+
+                override suspend fun getUnfinishedRides() = Result.Success(emptyList<RideRecord>())
+
                 override suspend fun deleteById(id: Long): EmptyResult<DataError.Local> = Result.Success(Unit)
 
                 override suspend fun deleteAll(): EmptyResult<DataError.Local> = Result.Success(Unit)
@@ -247,6 +255,15 @@ private fun testRideTracker(): RideTracker =
                 ): EmptyResult<DataError.Local> = Result.Success(Unit)
 
                 override suspend fun getPoints(rideId: Long) = Result.Success(emptyList<RideTrackPoint>())
+            },
+        sampleRepository =
+            object : RideSampleRepository {
+                override suspend fun saveSamples(
+                    rideId: Long,
+                    samples: List<RideSample>,
+                ): EmptyResult<DataError.Local> = Result.Success(Unit)
+
+                override suspend fun getSamples(rideId: Long) = Result.Success(emptyList<RideSample>())
             },
         lapRepository =
             object : RideLapRepository {
