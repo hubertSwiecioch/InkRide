@@ -4,6 +4,7 @@
     <string name="ble_cd_back">Wstecz</string>
     <string name="ble_section_heart_rate">Tętno</string>
     <string name="ble_section_cadence">Kadencja</string>
+    <string name="ble_section_power">Miernik mocy</string>
     <string name="ble_none_paired">Brak sparowanego czujnika</string>
     <string name="ble_paired_to">Sparowano: %1$s</string>
     <string name="ble_action_scan">Skanuj</string>

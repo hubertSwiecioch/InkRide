@@ -7,4 +7,7 @@ enum class BleSensorType {
 
     /** Cycling Speed and Cadence — GATT service 0x1816. */
     CADENCE,
+
+    /** Cycling Power meter — GATT service 0x1818. */
+    POWER,
 }

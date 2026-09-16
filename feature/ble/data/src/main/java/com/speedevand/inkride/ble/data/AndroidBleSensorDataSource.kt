@@ -10,9 +10,11 @@ import android.bluetooth.BluetoothProfile
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import androidx.annotation.VisibleForTesting
 import androidx.core.content.ContextCompat
 import com.speedevand.inkride.core.domain.ble.BleSample
 import com.speedevand.inkride.core.domain.ble.BleSensorDataSource
+import com.speedevand.inkride.core.domain.ble.PairedSensors
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import java.util.concurrent.ConcurrentHashMap
@@ -38,6 +40,10 @@ class AndroidBleSensorDataSource(
     // One GATT per connected address (an address may serve both HR and cadence).
     private val gatts = ConcurrentHashMap<String, BluetoothGatt>()
     private val cadenceTrackers = ConcurrentHashMap<String, CscCadenceTracker>()
+
+    // Separate from [cadenceTrackers]: a power meter's crank counters are its
+    // own, and diffing them against a CSC sensor's would produce nonsense.
+    private val powerCrankTrackers = ConcurrentHashMap<String, CrankRevolutionTracker>()
 
     // Per-address queue of characteristics still awaiting a CCCD-enable write.
     // Android GATT permits only one outstanding operation, so notifications are
@@ -74,13 +80,19 @@ class AndroidBleSensorDataSource(
     @Volatile
     private var latestWheelRevolutions: Long? = null
 
+    @Volatile
+    private var latestPowerWatts: Int? = null
+
+    @Volatile
+    private var latestPedalBalanceLeftPercent: Int? = null
+
+    @Volatile
+    private var lastPowerUpdateAtMs: Long? = null
+
     override fun observeSamples(): Flow<BleSample> = samples
 
-    override fun connect(
-        hrmAddress: String?,
-        cadenceAddress: String?,
-    ) {
-        val desired = setOfNotNull(hrmAddress, cadenceAddress)
+    override fun connect(sensors: PairedSensors) {
+        val desired = sensors.addresses
         if (desired == connectedAddresses) return
         disconnect()
         if (desired.isEmpty()) return
@@ -93,6 +105,7 @@ class AndroidBleSensorDataSource(
         desired.forEach { address ->
             val device = runCatching { adapter.getRemoteDevice(address) }.getOrNull() ?: return@forEach
             cadenceTrackers[address] = CscCadenceTracker()
+            powerCrankTrackers[address] = CrankRevolutionTracker()
             // autoConnect = true
             val gatt = device.connectGatt(context, true, gattCallback)
             if (gatt != null) gatts[address] = gatt
@@ -106,14 +119,28 @@ class AndroidBleSensorDataSource(
         }
         gatts.clear()
         cadenceTrackers.clear()
+        powerCrankTrackers.clear()
         pendingNotifications.clear()
         liveAddresses.clear()
         connectedAddresses = emptySet()
+        clearLatestReadings()
+        emit()
+    }
+
+    /**
+     * Drops every cached sensor reading. A sensor that has dropped must not
+     * leave its last value on screen forever — the rider should see that it is
+     * gone, not its final number. Kept in one place so a newly added reading
+     * cannot be cleared on one disconnect path and forgotten on the other.
+     */
+    private fun clearLatestReadings() {
         latestHeartRate = null
         latestCadence = null
         lastCadenceUpdateAtMs = null
         latestWheelRevolutions = null
-        emit()
+        latestPowerWatts = null
+        latestPedalBalanceLeftPercent = null
+        lastPowerUpdateAtMs = null
     }
 
     private fun emit() {
@@ -125,6 +152,9 @@ class AndroidBleSensorDataSource(
                 wheelRevolutions = latestWheelRevolutions,
                 connected = liveAddresses.isNotEmpty(),
                 cadenceUpdatedAtMs = lastCadenceUpdateAtMs,
+                powerWatts = latestPowerWatts,
+                pedalBalanceLeftPercent = latestPedalBalanceLeftPercent,
+                powerUpdatedAtMs = lastPowerUpdateAtMs,
             )
     }
 
@@ -147,10 +177,7 @@ class AndroidBleSensorDataSource(
                         // Don't let a stale reading from the now-gone sensor
                         // linger — the rider should see it's disconnected, not
                         // its last value forever.
-                        latestHeartRate = null
-                        latestCadence = null
-                        lastCadenceUpdateAtMs = null
-                        latestWheelRevolutions = null
+                        clearLatestReadings()
                         emit()
                     }
                 }
@@ -170,6 +197,10 @@ class AndroidBleSensorDataSource(
                 gatt
                     .getService(BleGatt.CSC_SERVICE)
                     ?.getCharacteristic(BleGatt.CSC_MEASUREMENT)
+                    ?.let { queue.add(it) }
+                gatt
+                    .getService(BleGatt.CYCLING_POWER_SERVICE)
+                    ?.getCharacteristic(BleGatt.CYCLING_POWER_MEASUREMENT)
                     ?.let { queue.add(it) }
                 pendingNotifications[address] = queue
                 enableNextNotification(gatt, address)
@@ -215,18 +246,52 @@ class AndroidBleSensorDataSource(
                 }
             }
 
+            BleGatt.CYCLING_POWER_MEASUREMENT -> {
+                val result = parseCyclingPower(data) ?: return
+                val now = System.currentTimeMillis()
+                latestPowerWatts = result.powerWatts
+                latestPedalBalanceLeftPercent = result.pedalBalanceLeftPercent
+                lastPowerUpdateAtMs = now
+                // A power meter that reports crank data supplies cadence too,
+                // so a rider with a meter needs no separate CSC sensor.
+                val crank = result.crank
+                val powerTracker = address?.let { powerCrankTrackers[it] }
+                if (crank != null && powerTracker != null) {
+                    powerTracker.cadenceFrom(crank.revolutions, crank.eventTime, now)?.let {
+                        latestCadence = it
+                        lastCadenceUpdateAtMs = now
+                    }
+                }
+                emit()
+            }
+
             BleGatt.CSC_MEASUREMENT -> {
                 val tracker = address?.let { cadenceTrackers[it] } ?: return
-                val result = tracker.update(data) ?: return
+                val now = System.currentTimeMillis()
+                val result = tracker.update(data, now) ?: return
                 result.cadenceRpm?.let {
                     latestCadence = it
-                    lastCadenceUpdateAtMs = System.currentTimeMillis()
+                    lastCadenceUpdateAtMs = now
                 }
                 result.wheelRevolutions?.let { latestWheelRevolutions = it }
                 emit()
             }
         }
     }
+
+    /**
+     * Feeds a characteristic value straight into the notification handling that
+     * [gattCallback] would otherwise drive. A unit test has no real GATT server
+     * to notify it, and the decoding this covers — which parser runs, which
+     * tracker it diffs against, what reaches the emitted sample — is the part
+     * worth testing, not Android's callback plumbing.
+     */
+    @VisibleForTesting
+    internal fun deliverCharacteristicForTest(
+        address: String,
+        uuid: java.util.UUID,
+        value: ByteArray,
+    ) = handleCharacteristic(address, uuid, value)
 
     /**
      * Enables the next queued characteristic's notifications and writes its CCCD,

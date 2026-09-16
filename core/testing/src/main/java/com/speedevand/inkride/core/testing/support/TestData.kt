@@ -54,4 +54,9 @@ object TestBleDevices {
         address: String = "AA:BB:CC:DD:EE:02",
         name: String? = "Cadence 200",
     ): BleDevice = BleDevice(address = address, name = name, type = BleSensorType.CADENCE)
+
+    fun power(
+        address: String = "AA:BB:CC:DD:EE:03",
+        name: String? = "Assioma DUO",
+    ): BleDevice = BleDevice(address = address, name = name, type = BleSensorType.POWER)
 }

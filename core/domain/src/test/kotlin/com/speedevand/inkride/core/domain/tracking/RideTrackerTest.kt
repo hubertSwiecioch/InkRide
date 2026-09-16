@@ -17,6 +17,7 @@ import com.speedevand.inkride.core.domain.EmptyResult
 import com.speedevand.inkride.core.domain.Result
 import com.speedevand.inkride.core.domain.ble.BleSample
 import com.speedevand.inkride.core.domain.ble.BleSensorDataSource
+import com.speedevand.inkride.core.domain.ble.PairedSensors
 import com.speedevand.inkride.core.domain.history.RideHistoryRepository
 import com.speedevand.inkride.core.domain.history.RideLapRepository
 import com.speedevand.inkride.core.domain.history.RideRecord
@@ -406,6 +407,46 @@ class RideTrackerTest {
         }
 
     @Test
+    fun `measured watts from a paired meter reach the published metrics`() =
+        runTest {
+            val sensor = FakeSensorDataSource()
+            val ble = FakeBleSensorDataSource()
+            val tracker = newTracker(testScheduler, sensor, ble = ble)
+
+            tracker.start()
+            ble.samples.emit(
+                BleSample(timestampMs = 0L, powerWatts = 243, powerUpdatedAtMs = 0L, connected = true),
+            )
+            sensor.samples.emit(sampleAt(0L, latitude = 0.0, longitude = 0.0, speedFromGpsMps = 8.0, accuracy = 5.0f))
+            sensor.samples.emit(sampleAt(1_000L, latitude = 0.0001, longitude = 0.0, speedFromGpsMps = 8.0, accuracy = 5.0f))
+
+            assertThat(tracker.state.value.metrics.powerWatts).isEqualTo(243)
+            assertThat(tracker.state.value.metrics.powerSource).isEqualTo(PowerSource.MEASURED)
+        }
+
+    @Test
+    fun `power reverts to the estimate once the meter has been quiet too long`() =
+        runTest {
+            val sensor = FakeSensorDataSource()
+            val ble = FakeBleSensorDataSource()
+            val tracker = newTracker(testScheduler, sensor, ble = ble)
+
+            tracker.start()
+            ble.samples.emit(
+                BleSample(timestampMs = 0L, powerWatts = 243, powerUpdatedAtMs = 0L, connected = true),
+            )
+            sensor.samples.emit(sampleAt(0L, latitude = 0.0, longitude = 0.0, speedFromGpsMps = 8.0, accuracy = 5.0f))
+            sensor.samples.emit(sampleAt(1_000L, latitude = 0.0001, longitude = 0.0, speedFromGpsMps = 8.0, accuracy = 5.0f))
+            assertThat(tracker.state.value.metrics.powerSource).isEqualTo(PowerSource.MEASURED)
+
+            // No fresh packet for well past the 3s window: the meter has gone
+            // quiet, so its last reading must stop standing in for a live one.
+            sensor.samples.emit(sampleAt(10_000L, latitude = 0.0002, longitude = 0.0, speedFromGpsMps = 8.0, accuracy = 5.0f))
+
+            assertThat(tracker.state.value.metrics.powerSource).isEqualTo(PowerSource.ESTIMATED)
+        }
+
+    @Test
     fun `a ride row is created at start so an interrupted ride survives`() =
         runTest {
             val sensor = FakeSensorDataSource()
@@ -729,10 +770,7 @@ private class FakeBleSensorDataSource : BleSensorDataSource {
 
     override fun observeSamples(): Flow<BleSample> = samples
 
-    override fun connect(
-        hrmAddress: String?,
-        cadenceAddress: String?,
-    ) = Unit
+    override fun connect(sensors: PairedSensors) = Unit
 
     override fun disconnect() = Unit
 }

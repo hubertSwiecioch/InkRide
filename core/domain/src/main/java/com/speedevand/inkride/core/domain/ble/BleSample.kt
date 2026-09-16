@@ -21,4 +21,10 @@ data class BleSample(
     // notifications, without a fresh crank event — this field lets a
     // consumer tell "cadence is still arriving" from "cadence is stale".
     val cadenceUpdatedAtMs: Long? = null,
+    val powerWatts: Int? = null,
+    val pedalBalanceLeftPercent: Int? = null,
+    // Wall-clock time of the last packet that actually carried power. Same role
+    // as [cadenceUpdatedAtMs]: a meter goes quiet when the crank stops, and
+    // frozen watts would lie exactly the way a frozen speed does.
+    val powerUpdatedAtMs: Long? = null,
 )

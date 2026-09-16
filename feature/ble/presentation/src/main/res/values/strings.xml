@@ -4,6 +4,7 @@
     <string name="ble_cd_back">Back</string>
     <string name="ble_section_heart_rate">Heart rate</string>
     <string name="ble_section_cadence">Cadence</string>
+    <string name="ble_section_power">Power meter</string>
     <string name="ble_none_paired">No sensor paired</string>
     <string name="ble_paired_to">Paired: %1$s</string>
     <string name="ble_action_scan">Scan</string>

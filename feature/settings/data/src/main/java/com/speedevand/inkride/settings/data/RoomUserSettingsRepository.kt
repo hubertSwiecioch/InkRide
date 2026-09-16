@@ -61,6 +61,7 @@ class RoomUserSettingsRepository(
                     keepScreenOn = entity.keepScreenOn,
                     pairedHrmAddress = entity.pairedHrmAddress,
                     pairedCadenceAddress = entity.pairedCadenceAddress,
+                    pairedPowerAddress = entity.pairedPowerAddress,
                     alerts =
                         AlertConfig(
                             maxSpeedKmh = entity.maxSpeedAlertKmh,
@@ -103,6 +104,7 @@ class RoomUserSettingsRepository(
                     keepScreenOn = settings.keepScreenOn,
                     pairedHrmAddress = settings.pairedHrmAddress,
                     pairedCadenceAddress = settings.pairedCadenceAddress,
+                    pairedPowerAddress = settings.pairedPowerAddress,
                     maxSpeedAlertKmh = settings.alerts.maxSpeedKmh,
                     hrZoneMinBpm = settings.alerts.hrZoneMinBpm,
                     hrZoneMaxBpm = settings.alerts.hrZoneMaxBpm,

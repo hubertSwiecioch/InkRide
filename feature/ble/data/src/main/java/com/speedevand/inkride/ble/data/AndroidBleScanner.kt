@@ -56,6 +56,7 @@ class AndroidBleScanner(
                 when (type) {
                     BleSensorType.HEART_RATE -> BleGatt.HEART_RATE_SERVICE
                     BleSensorType.CADENCE -> BleGatt.CSC_SERVICE
+                    BleSensorType.POWER -> BleGatt.CYCLING_POWER_SERVICE
                 }
             val filter =
                 ScanFilter

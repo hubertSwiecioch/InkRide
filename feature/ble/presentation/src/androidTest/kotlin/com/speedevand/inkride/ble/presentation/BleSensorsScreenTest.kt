@@ -214,4 +214,53 @@ class BleSensorsScreenTest {
         composeTestRule.waitUntil(timeoutMillis = 5_000L) { backPressed }
         assertThat(backPressed).isTrue()
     }
+
+    @Test
+    fun pairingAPowerMeterPersistsItsAddress() {
+        setContent()
+        startScan(BleSensorType.POWER)
+        runBlocking { scanner.emitDevice(TestBleDevices.power()) }
+        awaitDeviceRow("AA:BB:CC:DD:EE:03")
+
+        composeTestRule.onNodeWithTag(BleSensorsTestTags.deviceRow("AA:BB:CC:DD:EE:03")).performClick()
+
+        composeTestRule.waitUntil(timeoutMillis = 5_000L) {
+            settingsRepository.lastSaved?.pairedPowerAddress == "AA:BB:CC:DD:EE:03"
+        }
+        assertThat(settingsRepository.lastSaved?.pairedPowerAddress).isEqualTo("AA:BB:CC:DD:EE:03")
+        assertThat(scanner.stoppedScans).isGreaterThan(0)
+    }
+
+    @Test
+    fun thePowerSlotShowsAsUnpairedWhenNothingIsStored() {
+        setContent()
+
+        composeTestRule
+            .onNodeWithTag(BleSensorsTestTags.nonePairedLabel(BleSensorType.POWER))
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun forgettingThePowerMeterLeavesTheOtherSensorsPaired() {
+        runBlocking {
+            settingsRepository.save(
+                TestSettings.default().copy(
+                    pairedHrmAddress = "AA:BB:CC:DD:EE:01",
+                    pairedCadenceAddress = "AA:BB:CC:DD:EE:02",
+                    pairedPowerAddress = "AA:BB:CC:DD:EE:03",
+                ),
+            )
+        }
+        setContent()
+
+        composeTestRule.onNodeWithTag(BleSensorsTestTags.forgetButton(BleSensorType.POWER)).performClick()
+
+        composeTestRule.waitUntil(timeoutMillis = 5_000L) {
+            settingsRepository.lastSaved?.pairedPowerAddress == null
+        }
+        // Forgetting one slot must not disturb the others.
+        assertThat(settingsRepository.lastSaved?.pairedHrmAddress).isEqualTo("AA:BB:CC:DD:EE:01")
+        assertThat(settingsRepository.lastSaved?.pairedCadenceAddress).isEqualTo("AA:BB:CC:DD:EE:02")
+        assertThat(settingsRepository.lastSaved?.pairedPowerAddress).isNull()
+    }
 }

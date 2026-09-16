@@ -9,6 +9,7 @@ import com.speedevand.inkride.core.presentation.UiText
 data class BleSensorsState(
     val pairedHrmAddress: String? = null,
     val pairedCadenceAddress: String? = null,
+    val pairedPowerAddress: String? = null,
     // Non-null while a scan is running; identifies which sensor kind is scanned.
     val scanningType: BleSensorType? = null,
     val discovered: List<BleDevice> = emptyList(),

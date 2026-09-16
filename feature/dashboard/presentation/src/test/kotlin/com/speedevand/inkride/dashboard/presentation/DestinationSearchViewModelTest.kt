@@ -11,6 +11,7 @@ import com.speedevand.inkride.core.domain.EmptyResult
 import com.speedevand.inkride.core.domain.Result
 import com.speedevand.inkride.core.domain.ble.BleSample
 import com.speedevand.inkride.core.domain.ble.BleSensorDataSource
+import com.speedevand.inkride.core.domain.ble.PairedSensors
 import com.speedevand.inkride.core.domain.history.RideHistoryRepository
 import com.speedevand.inkride.core.domain.history.RideLapRepository
 import com.speedevand.inkride.core.domain.history.RideRecord
@@ -278,10 +279,7 @@ private fun testRideTracker(): RideTracker =
             object : BleSensorDataSource {
                 override fun observeSamples(): Flow<BleSample> = emptyFlow()
 
-                override fun connect(
-                    hrmAddress: String?,
-                    cadenceAddress: String?,
-                ) = Unit
+                override fun connect(sensors: PairedSensors) = Unit
 
                 override fun disconnect() = Unit
             },

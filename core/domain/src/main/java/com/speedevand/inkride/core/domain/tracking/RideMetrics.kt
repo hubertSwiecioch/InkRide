@@ -19,6 +19,11 @@ data class RideMetrics(
     val caloriesKcal: Double = 0.0,
     val powerWatts: Int = 0,
     val averagePowerWatts: Int = 0,
+    // Where powerWatts came from, so a consumer can tell a measurement from a
+    // ±30-60 % model output. Nothing renders the distinction yet: the dashboard
+    // shows the watts either way, and training load (which must not build
+    // NP/IF/TSS on an estimate) is a later plan.
+    val powerSource: PowerSource = PowerSource.ESTIMATED,
     val gpsAccuracyM: Float? = null,
     val bearingDegrees: Float? = null,
     val gpsQuality: GpsQuality = GpsQuality.POOR,
