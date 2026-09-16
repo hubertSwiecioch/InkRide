@@ -29,16 +29,16 @@ class BleGattTest {
     fun `CscCadenceTracker yields null on the first crank sample`() {
         val tracker = CscCadenceTracker()
         // flags 0x02 (crank present), revs = 10, eventTime = 0
-        val result = tracker.update(byteArrayOf(0x02, 0x0A, 0x00, 0x00, 0x00))
+        val result = tracker.update(nowMs = 0L, data = byteArrayOf(0x02, 0x0A, 0x00, 0x00, 0x00))
         assertThat(result?.cadenceRpm).isNull()
     }
 
     @Test
     fun `CscCadenceTracker computes 60 rpm for one rev per second`() {
         val tracker = CscCadenceTracker()
-        tracker.update(byteArrayOf(0x02, 0x0A, 0x00, 0x00, 0x00))
+        tracker.update(nowMs = 0L, data = byteArrayOf(0x02, 0x0A, 0x00, 0x00, 0x00))
         // +1 revolution, +1024 ticks (= 1 second at 1/1024 s resolution).
-        val result = tracker.update(byteArrayOf(0x02, 0x0B, 0x00, 0x00, 0x04))
+        val result = tracker.update(nowMs = 1_000L, data = byteArrayOf(0x02, 0x0B, 0x00, 0x00, 0x04))
         assertThat(result?.cadenceRpm).isEqualTo(60)
     }
 
@@ -46,9 +46,9 @@ class BleGattTest {
     fun `CscCadenceTracker handles crank-event-time wraparound`() {
         val tracker = CscCadenceTracker()
         // Start near the uint16 ceiling: time = 65535.
-        tracker.update(byteArrayOf(0x02, 0x0A, 0x00, 0xFF.toByte(), 0xFF.toByte()))
+        tracker.update(nowMs = 0L, data = byteArrayOf(0x02, 0x0A, 0x00, 0xFF.toByte(), 0xFF.toByte()))
         // Wrap to 1023 → delta = 1024 ticks, +1 rev → 60 rpm.
-        val result = tracker.update(byteArrayOf(0x02, 0x0B, 0x00, 0xFF.toByte(), 0x03))
+        val result = tracker.update(nowMs = 1_000L, data = byteArrayOf(0x02, 0x0B, 0x00, 0xFF.toByte(), 0x03))
         assertThat(result?.cadenceRpm).isEqualTo(60)
     }
 
@@ -62,7 +62,7 @@ class BleGattTest {
         assertThat(result).isNotNull()
         assertThat(result!!.powerWatts).isEqualTo(250)
         assertThat(result.pedalBalanceLeftPercent).isNull()
-        assertThat(result.crankRevolutions).isNull()
+        assertThat(result.crank).isNull()
     }
 
     @Test
@@ -82,8 +82,8 @@ class BleGattTest {
 
         val result = parseCyclingPower(packet)
 
-        assertThat(result!!.crankRevolutions).isEqualTo(1000)
-        assertThat(result.crankEventTime).isEqualTo(2048)
+        assertThat(result!!.crank!!.revolutions).isEqualTo(1000)
+        assertThat(result.crank!!.eventTime).isEqualTo(2048)
     }
 
     @Test
@@ -117,8 +117,8 @@ class BleGattTest {
 
         assertThat(result!!.powerWatts).isEqualTo(200)
         assertThat(result.pedalBalanceLeftPercent).isEqualTo(50)
-        assertThat(result.crankRevolutions).isEqualTo(1000)
-        assertThat(result.crankEventTime).isEqualTo(2048)
+        assertThat(result.crank!!.revolutions).isEqualTo(1000)
+        assertThat(result.crank!!.eventTime).isEqualTo(2048)
     }
 
     @Test
@@ -143,7 +143,7 @@ class BleGattTest {
         val result = parseCyclingPower(packet)
 
         assertThat(result!!.powerWatts).isEqualTo(200)
-        assertThat(result.crankRevolutions).isNull()
+        assertThat(result.crank).isNull()
     }
 
     @Test
@@ -151,11 +151,11 @@ class BleGattTest {
         val tracker = CrankRevolutionTracker()
 
         // First reading establishes the baseline and yields nothing.
-        assertThat(tracker.cadenceFrom(revolutions = 65_530, eventTime = 64_000)).isNull()
+        assertThat(tracker.cadenceFrom(revolutions = 65_530, eventTime = 64_000, nowMs = 0L)).isNull()
 
         // 6 revolutions later (65530 -> 0 wraps the uint16 counter), 6144/1024 s
         // = 6 s elapsed -> 60 rpm. Both counters wrap between the two readings.
-        val cadence = tracker.cadenceFrom(revolutions = 0, eventTime = 4_608)
+        val cadence = tracker.cadenceFrom(revolutions = 0, eventTime = 4_608, nowMs = 6_000L)
 
         assertThat(cadence).isEqualTo(60)
     }
@@ -163,21 +163,66 @@ class BleGattTest {
     @Test
     fun `crank tracker returns null when no time has elapsed`() {
         val tracker = CrankRevolutionTracker()
-        tracker.cadenceFrom(revolutions = 10, eventTime = 1_024)
+        tracker.cadenceFrom(revolutions = 10, eventTime = 1_024, nowMs = 0L)
 
-        assertThat(tracker.cadenceFrom(revolutions = 12, eventTime = 1_024)).isNull()
+        assertThat(tracker.cadenceFrom(revolutions = 12, eventTime = 1_024, nowMs = 1_000L)).isNull()
     }
 
     @Test
     fun `crank tracker needs a fresh baseline after a reset`() {
         val tracker = CrankRevolutionTracker()
-        tracker.cadenceFrom(revolutions = 10, eventTime = 1_024)
+        tracker.cadenceFrom(revolutions = 10, eventTime = 1_024, nowMs = 0L)
 
         tracker.reset()
 
         // Without the reset this would diff against revolutions = 10 and report
         // a cadence; after it, the next reading is a baseline again.
-        assertThat(tracker.cadenceFrom(revolutions = 11, eventTime = 2_048)).isNull()
-        assertThat(tracker.cadenceFrom(revolutions = 12, eventTime = 3_072)).isEqualTo(60)
+        assertThat(tracker.cadenceFrom(revolutions = 11, eventTime = 2_048, nowMs = 1_000L)).isNull()
+        assertThat(tracker.cadenceFrom(revolutions = 12, eventTime = 3_072, nowMs = 2_000L)).isEqualTo(60)
+    }
+
+    @Test
+    fun `crank tracker refuses a baseline old enough for the counters to have wrapped`() {
+        val tracker = CrankRevolutionTracker()
+        tracker.cadenceFrom(revolutions = 10, eventTime = 1_024, nowMs = 0L)
+
+        // 90 s of real time later. The event-time counter runs at 1/1024 s and
+        // wraps at 65536, i.e. every 64 s, so the true elapsed ticks (92_160)
+        // are indistinguishable from 26_624 once wrapped — the rider stopped at
+        // a light, the sensor went quiet, and the delta is now a fiction.
+        // Diffing it would report 207 rpm for a rider just pulling away.
+        assertThat(tracker.cadenceFrom(revolutions = 100, eventTime = 27_648, nowMs = 90_000L)).isNull()
+
+        // That reading becomes the new baseline, and the next one diffs normally.
+        assertThat(tracker.cadenceFrom(revolutions = 101, eventTime = 28_672, nowMs = 91_000L)).isEqualTo(60)
+    }
+
+    @Test
+    fun `crank tracker keeps diffing across a gap short enough to stay unambiguous`() {
+        val tracker = CrankRevolutionTracker()
+        tracker.cadenceFrom(revolutions = 10, eventTime = 1_024, nowMs = 0L)
+
+        // 5 s: well inside one wrap, so the counters are still comparable. A
+        // brief BLE dropout must not throw away a usable baseline — the sensor
+        // keeps counting across it.
+        assertThat(tracker.cadenceFrom(revolutions = 15, eventTime = 6_144, nowMs = 5_000L)).isEqualTo(60)
+    }
+
+    @Test
+    fun `CscCadenceTracker invents no cadence spike when the rider pulls away from a long stop`() {
+        val tracker = CscCadenceTracker()
+        // Pedalling: crank revs 10 at event time 1024.
+        tracker.update(nowMs = 0L, data = byteArrayOf(0x02, 0x0A, 0x00, 0x00, 0x04))
+
+        // Three minutes at a red light. Most CSC sensors stop notifying once the
+        // crank stops, so the next packet only arrives as the rider pulls away —
+        // by which point the event-time counter has wrapped nearly three times
+        // and the raw delta describes a ride that never happened.
+        val result = tracker.update(nowMs = 180_000L, data = byteArrayOf(0x02, 0x14, 0x00, 0x00, 0x08))
+
+        assertThat(result?.cadenceRpm).isNull()
+        // Wheel data in the same packet is a plain cumulative counter with no
+        // such ambiguity, so it is still reported.
+        assertThat(result).isNotNull()
     }
 }

@@ -123,6 +123,17 @@ class AndroidBleSensorDataSource(
         pendingNotifications.clear()
         liveAddresses.clear()
         connectedAddresses = emptySet()
+        clearLatestReadings()
+        emit()
+    }
+
+    /**
+     * Drops every cached sensor reading. A sensor that has dropped must not
+     * leave its last value on screen forever — the rider should see that it is
+     * gone, not its final number. Kept in one place so a newly added reading
+     * cannot be cleared on one disconnect path and forgotten on the other.
+     */
+    private fun clearLatestReadings() {
         latestHeartRate = null
         latestCadence = null
         lastCadenceUpdateAtMs = null
@@ -130,7 +141,6 @@ class AndroidBleSensorDataSource(
         latestPowerWatts = null
         latestPedalBalanceLeftPercent = null
         lastPowerUpdateAtMs = null
-        emit()
     }
 
     private fun emit() {
@@ -167,13 +177,7 @@ class AndroidBleSensorDataSource(
                         // Don't let a stale reading from the now-gone sensor
                         // linger — the rider should see it's disconnected, not
                         // its last value forever.
-                        latestHeartRate = null
-                        latestCadence = null
-                        lastCadenceUpdateAtMs = null
-                        latestWheelRevolutions = null
-                        latestPowerWatts = null
-                        latestPedalBalanceLeftPercent = null
-                        lastPowerUpdateAtMs = null
+                        clearLatestReadings()
                         emit()
                     }
                 }
@@ -244,16 +248,18 @@ class AndroidBleSensorDataSource(
 
             BleGatt.CYCLING_POWER_MEASUREMENT -> {
                 val result = parseCyclingPower(data) ?: return
+                val now = System.currentTimeMillis()
                 latestPowerWatts = result.powerWatts
                 latestPedalBalanceLeftPercent = result.pedalBalanceLeftPercent
-                lastPowerUpdateAtMs = System.currentTimeMillis()
+                lastPowerUpdateAtMs = now
                 // A power meter that reports crank data supplies cadence too,
                 // so a rider with a meter needs no separate CSC sensor.
-                if (result.crankRevolutions != null && result.crankEventTime != null) {
-                    val tracker = address?.let { powerCrankTrackers[it] }
-                    tracker?.cadenceFrom(result.crankRevolutions, result.crankEventTime)?.let {
+                val crank = result.crank
+                val powerTracker = address?.let { powerCrankTrackers[it] }
+                if (crank != null && powerTracker != null) {
+                    powerTracker.cadenceFrom(crank.revolutions, crank.eventTime, now)?.let {
                         latestCadence = it
-                        lastCadenceUpdateAtMs = System.currentTimeMillis()
+                        lastCadenceUpdateAtMs = now
                     }
                 }
                 emit()
@@ -261,10 +267,11 @@ class AndroidBleSensorDataSource(
 
             BleGatt.CSC_MEASUREMENT -> {
                 val tracker = address?.let { cadenceTrackers[it] } ?: return
-                val result = tracker.update(data) ?: return
+                val now = System.currentTimeMillis()
+                val result = tracker.update(data, now) ?: return
                 result.cadenceRpm?.let {
                     latestCadence = it
-                    lastCadenceUpdateAtMs = System.currentTimeMillis()
+                    lastCadenceUpdateAtMs = now
                 }
                 result.wheelRevolutions?.let { latestWheelRevolutions = it }
                 emit()

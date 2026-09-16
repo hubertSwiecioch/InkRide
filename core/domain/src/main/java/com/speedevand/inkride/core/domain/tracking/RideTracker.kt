@@ -142,7 +142,11 @@ class RideTracker(
     @Volatile
     private var lastCadenceUpdateAtMs: Long? = null
 
-    private val cadenceTimeoutMs: Long = 3_000L
+    // How long a BLE reading stays usable after the packet that carried it.
+    // One window for every sensor kind: they all go quiet the same way (the
+    // crank stops, the strap slips) and two constants drifting apart would mean
+    // cadence and power disagreeing about whether the rider is still pedalling.
+    private val bleReadingTimeoutMs: Long = 3_000L
 
     // Latest watts from a paired power meter, and the wall-clock time of the
     // packet that carried them. Null whenever no meter is reporting, which is
@@ -152,11 +156,6 @@ class RideTracker(
 
     @Volatile
     private var lastPowerUpdateAtMs: Long? = null
-
-    // Same window cadence uses: a meter goes quiet when the crank stops, and
-    // holding its last reading would overstate the rider's effort exactly the
-    // way a frozen speed overstates their pace.
-    private val powerTimeoutMs: Long = 3_000L
 
     // In-memory GPS track for the current ride, flushed to the database (keyed by
     // the new ride's id) at stop. Guarded by [trackPointsLock] because it's
@@ -488,8 +487,11 @@ class RideTracker(
                 val bleJob =
                     launch {
                         bleSensorDataSource.observeSamples().collect { ble ->
-                            ble.cadenceUpdatedAtMs?.let { lastCadenceUpdateAtMs = it }
-                            ble.powerUpdatedAtMs?.let { lastPowerUpdateAtMs = it }
+                            // Mirror the data source's view wholesale: the sample
+                            // always carries its retained timestamps, and on a drop
+                            // it carries nulls that should clear ours too.
+                            lastCadenceUpdateAtMs = ble.cadenceUpdatedAtMs
+                            lastPowerUpdateAtMs = ble.powerUpdatedAtMs
                             latestMeasuredPowerWatts = ble.powerWatts
                             val updated =
                                 _state.updateAndGet { current ->
@@ -617,7 +619,7 @@ class RideTracker(
 
     /**
      * The latest measured watts, or null once the meter has been quiet for
-     * longer than [powerTimeoutMs]. Null rather than zero on purpose: zero is a
+     * longer than [bleReadingTimeoutMs]. Null rather than zero on purpose: zero is a
      * claim the rider is producing no power, while null hands the reading back
      * to [PowerEstimator], which is the honest answer when no meter is
      * reporting.
@@ -625,11 +627,11 @@ class RideTracker(
     private fun measuredPowerOrNullIfStale(nowMs: Long): Int? {
         val watts = latestMeasuredPowerWatts ?: return null
         val lastUpdate = lastPowerUpdateAtMs ?: return watts
-        return if (nowMs - lastUpdate > powerTimeoutMs) null else watts
+        return if (nowMs - lastUpdate > bleReadingTimeoutMs) null else watts
     }
 
     /**
-     * Returns 0 once more than [cadenceTimeoutMs] has passed since the last
+     * Returns 0 once more than [bleReadingTimeoutMs] has passed since the last
      * actual cadence notification, instead of freezing at the last reported
      * value.
      */
@@ -638,7 +640,7 @@ class RideTracker(
         nowMs: Long,
     ): Int? {
         val lastUpdate = lastCadenceUpdateAtMs ?: return rawCadenceRpm
-        return if (nowMs - lastUpdate > cadenceTimeoutMs) 0 else rawCadenceRpm
+        return if (nowMs - lastUpdate > bleReadingTimeoutMs) 0 else rawCadenceRpm
     }
 
     private fun resetAlertState() =

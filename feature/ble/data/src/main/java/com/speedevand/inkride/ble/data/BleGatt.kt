@@ -38,12 +38,22 @@ internal fun parseHeartRate(data: ByteArray): Int? {
     }
 }
 
+/**
+ * A cumulative crank reading: revolutions since the sensor powered on, paired
+ * with the time of that revolution. The two are only meaningful together, so
+ * they travel as one value rather than two nullable fields a caller has to
+ * check in step.
+ */
+internal data class CrankReading(
+    val revolutions: Int,
+    val eventTime: Int,
+)
+
 /** Decoded Cycling Power Measurement (0x2A63) fields InkRide consumes. */
 internal data class CyclingPowerResult(
     val powerWatts: Int,
-    val pedalBalanceLeftPercent: Int?,
-    val crankRevolutions: Int?,
-    val crankEventTime: Int?,
+    val pedalBalanceLeftPercent: Int? = null,
+    val crank: CrankReading? = null,
 )
 
 /**
@@ -63,38 +73,52 @@ internal data class CyclingPowerResult(
  * power with that field null, never a guessed value.
  */
 internal fun parseCyclingPower(data: ByteArray): CyclingPowerResult? {
-    if (data.size < 4) return null
+    if (data.size < CYCLING_POWER_HEADER_BYTES) return null
     val flags = readUint16(data, 0)
     val powerWatts = readSint16(data, 2)
 
-    var offset = 4
-    val hasPedalBalance = (flags and 0x0001) != 0
+    var offset = CYCLING_POWER_HEADER_BYTES
     val pedalBalanceLeftPercent =
-        if (hasPedalBalance) {
-            if (data.size < offset + 1) return CyclingPowerResult(powerWatts, null, null, null)
-            val raw = data[offset].toInt() and 0xFF
+        if (flags hasFlag FLAG_PEDAL_BALANCE) {
+            if (data.size < offset + 1) return CyclingPowerResult(powerWatts)
+            val halfPercent = data[offset].toInt() and 0xFF
             offset += 1
-            raw / 2
+            halfPercent / 2
         } else {
             null
         }
 
     // Skip the optional fields between pedal balance and crank data, in flag
     // order, so the crank offset stays correct on meters that report them.
-    if ((flags and 0x0004) != 0) offset += 2 // accumulated torque (uint16)
-    if ((flags and 0x0010) != 0) offset += 6 // wheel revolution data (uint32 + uint16)
+    if (flags hasFlag FLAG_ACCUMULATED_TORQUE) offset += 2 // uint16
+    if (flags hasFlag FLAG_WHEEL_REVOLUTION_DATA) offset += 6 // uint32 + uint16
 
-    val hasCrankData = (flags and 0x0020) != 0
-    if (!hasCrankData || data.size < offset + 4) {
-        return CyclingPowerResult(powerWatts, pedalBalanceLeftPercent, null, null)
+    if (!(flags hasFlag FLAG_CRANK_REVOLUTION_DATA) || data.size < offset + 4) {
+        return CyclingPowerResult(powerWatts, pedalBalanceLeftPercent)
     }
     return CyclingPowerResult(
         powerWatts = powerWatts,
         pedalBalanceLeftPercent = pedalBalanceLeftPercent,
-        crankRevolutions = readUint16(data, offset),
-        crankEventTime = readUint16(data, offset + 2),
+        crank =
+            CrankReading(
+                revolutions = readUint16(data, offset),
+                eventTime = readUint16(data, offset + 2),
+            ),
     )
 }
+
+// Cycling Power Measurement flag bits (Bluetooth SIG). Only the ones that
+// change where a later field starts are named — getting one wrong silently
+// shifts every subsequent offset rather than failing loudly.
+private const val FLAG_PEDAL_BALANCE = 0x0001
+private const val FLAG_ACCUMULATED_TORQUE = 0x0004
+private const val FLAG_WHEEL_REVOLUTION_DATA = 0x0010
+private const val FLAG_CRANK_REVOLUTION_DATA = 0x0020
+
+/** uint16 flags + mandatory sint16 instantaneous power. */
+private const val CYCLING_POWER_HEADER_BYTES = 4
+
+private infix fun Int.hasFlag(flag: Int): Boolean = (this and flag) != 0
 
 /**
  * Turns successive cumulative crank readings into an instantaneous cadence.
@@ -102,30 +126,56 @@ internal fun parseCyclingPower(data: ByteArray): CyclingPowerResult? {
  * the identical field pair: cumulative revolutions and an event time in
  * 1/1024 s, both wrapping at 65536. Returns null until a baseline exists and
  * whenever no time has elapsed between readings.
+ *
+ * Both counters wrap every [COUNTER_WRAP_MS], and most crank sensors stop
+ * notifying entirely once the crank stops rather than reporting 0 rpm. A
+ * baseline older than one wrap is therefore not merely stale but ambiguous —
+ * the modular delta against it is indistinguishable from a much shorter one,
+ * so a rider pulling away from a long red light would be credited a cadence
+ * several times what they are actually turning. Past that age the reading is
+ * treated as a fresh baseline instead, which costs one sample of cadence and
+ * is the only honest option: nothing in the packet can disambiguate the gap.
  */
 internal class CrankRevolutionTracker {
     private var lastRevolutions: Int? = null
     private var lastEventTime: Int? = null
+    private var lastReadingAtMs: Long? = null
 
     fun cadenceFrom(
         revolutions: Int,
         eventTime: Int,
+        nowMs: Long,
     ): Int? {
         val previousRevolutions = lastRevolutions
         val previousEventTime = lastEventTime
+        val previousReadingAtMs = lastReadingAtMs
         lastRevolutions = revolutions
         lastEventTime = eventTime
+        lastReadingAtMs = nowMs
         if (previousRevolutions == null || previousEventTime == null) return null
+        if (previousReadingAtMs != null && nowMs - previousReadingAtMs >= COUNTER_WRAP_MS) return null
 
-        val deltaRevolutions = (revolutions - previousRevolutions + 0x10000) % 0x10000
-        val deltaTime = (eventTime - previousEventTime + 0x10000) % 0x10000
+        val deltaRevolutions = (revolutions - previousRevolutions + COUNTER_MODULUS) % COUNTER_MODULUS
+        val deltaTime = (eventTime - previousEventTime + COUNTER_MODULUS) % COUNTER_MODULUS
         if (deltaTime <= 0) return null
-        return (deltaRevolutions.toDouble() * 1024.0 * 60.0 / deltaTime.toDouble()).toInt()
+        return (deltaRevolutions.toDouble() * EVENT_TIME_TICKS_PER_SECOND * 60.0 / deltaTime.toDouble()).toInt()
     }
 
     fun reset() {
         lastRevolutions = null
         lastEventTime = null
+        lastReadingAtMs = null
+    }
+
+    private companion object {
+        /** Both crank counters are uint16. */
+        const val COUNTER_MODULUS = 0x10000
+
+        /** Crank event time is expressed in 1/1024 s units. */
+        const val EVENT_TIME_TICKS_PER_SECOND = 1024.0
+
+        /** How long the event-time counter takes to wrap: 65536 / 1024 s. */
+        const val COUNTER_WRAP_MS = (COUNTER_MODULUS / EVENT_TIME_TICKS_PER_SECOND * 1000.0).toLong()
     }
 }
 
@@ -142,7 +192,10 @@ internal class CscCadenceTracker {
      * sample (no baseline to diff against). Crank event time is in 1/1024 s units
      * and wraps at 65536.
      */
-    fun update(data: ByteArray): CscResult? {
+    fun update(
+        data: ByteArray,
+        nowMs: Long,
+    ): CscResult? {
         if (data.isEmpty()) return null
         val flags = data[0].toInt()
         val wheelPresent = (flags and 0x01) != 0
@@ -162,6 +215,7 @@ internal class CscCadenceTracker {
             crankTracker.cadenceFrom(
                 revolutions = readUint16(data, offset),
                 eventTime = readUint16(data, offset + 2),
+                nowMs = nowMs,
             )
         return CscResult(cadenceRpm = cadence, wheelRevolutions = wheelRevolutions)
     }
