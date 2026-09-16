@@ -271,4 +271,73 @@ class TrainingLoadCalculatorTest {
 
         assertThat(metrics.currentPowerZone).isEqualTo(2)
     }
+
+    @Test
+    fun `VAM reports vertical metres per hour over the recent window`() {
+        val calculator = TrainingLoadCalculator()
+        var metrics = TrainingMetrics()
+
+        // Climbing 0.25 m/s = 900 m/h, for two full windows.
+        for (second in 0..180) {
+            val altitude = 100.0 + second * 0.25
+            metrics = calculator.process(second * 1000L, 250, PowerSource.MEASURED, null, altitude, true, thresholds)
+        }
+
+        assertThat(metrics.vamMetersPerHour!!).isCloseTo(900.0, 50.0)
+    }
+
+    @Test
+    fun `work in kilojoules is the integral of watts over moving time`() {
+        val calculator = TrainingLoadCalculator()
+        var metrics = TrainingMetrics()
+
+        // 200 W for 600 s = 120 kJ.
+        for (second in 1..600) {
+            metrics = calculator.process(second * 1000L, 200, PowerSource.MEASURED, null, null, true, thresholds)
+        }
+
+        assertThat(metrics.workKj).isCloseTo(120.0, 1.0)
+    }
+
+    @Test
+    fun `VAM goes negative on a descent rather than reporting the magnitude`() {
+        val calculator = TrainingLoadCalculator()
+        var metrics = TrainingMetrics()
+
+        // Losing 0.5 m/s = -1800 m/h. Reporting 1800 would make a descent look
+        // like the hardest climb of the ride.
+        for (second in 0..180) {
+            val altitude = 500.0 - second * 0.5
+            metrics = calculator.process(second * 1000L, 100, PowerSource.MEASURED, null, altitude, true, thresholds)
+        }
+
+        assertThat(metrics.vamMetersPerHour!!).isCloseTo(-1800.0, 100.0)
+    }
+
+    @Test
+    fun `VAM only reflects the trailing window, not the whole climb`() {
+        val calculator = TrainingLoadCalculator()
+        var metrics = TrainingMetrics()
+
+        // Five minutes climbing hard, then a minute of flat. A whole-ride
+        // average would still show the climb; the rider needs the flat.
+        for (second in 0..300) {
+            metrics =
+                calculator.process(second * 1000L, 250, PowerSource.MEASURED, null, 100.0 + second * 0.5, true, thresholds)
+        }
+        for (second in 301..420) {
+            metrics = calculator.process(second * 1000L, 250, PowerSource.MEASURED, null, 250.0, true, thresholds)
+        }
+
+        assertThat(metrics.vamMetersPerHour!!).isCloseTo(0.0, 30.0)
+    }
+
+    @Test
+    fun `VAM is absent until the barometer has given it something to compare`() {
+        val calculator = TrainingLoadCalculator()
+
+        val metrics = calculator.process(0L, 250, PowerSource.MEASURED, null, 100.0, true, thresholds)
+
+        assertThat(metrics.vamMetersPerHour).isNull()
+    }
 }

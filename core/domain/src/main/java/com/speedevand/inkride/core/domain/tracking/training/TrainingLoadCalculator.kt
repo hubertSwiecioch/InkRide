@@ -39,6 +39,10 @@ class TrainingLoadCalculator(
     private var currentPowerZone: Int? = null
     private var trimpAccumulator: Double = 0.0
 
+    // (timestampMs, altitudeM) for the trailing VAM window, oldest first.
+    private val altitudeWindow = ArrayDeque<Pair<Long, Double>>()
+    private val vamWindowMs: Long = 60_000L
+
     fun reset() {
         resampler.reset()
         powerWindow.clear()
@@ -53,6 +57,7 @@ class TrainingLoadCalculator(
         currentHrZone = null
         currentPowerZone = null
         trimpAccumulator = 0.0
+        altitudeWindow.clear()
     }
 
     fun process(
@@ -90,6 +95,16 @@ class TrainingLoadCalculator(
                 ?.let { avg -> thresholds.lthrBpm?.takeIf { it > 0 }?.let { avg / it } }
                 ?.let { hrIf -> movingSeconds / 3600.0 * hrIf * hrIf * 100.0 }
 
+        // VAM: vertical metres per hour over the trailing window. A short window
+        // keeps it responsive on a climb; a longer one would lag the gradient.
+        val vam =
+            altitudeWindow
+                .takeIf { it.size >= 2 }
+                ?.let { window ->
+                    val elapsedHours = (window.last().first - window.first().first) / 3_600_000.0
+                    if (elapsedHours <= 0.0) null else (window.last().second - window.first().second) / elapsedHours
+                }
+
         return TrainingMetrics(
             normalizedPowerWatts = normalizedPower,
             intensityFactor = intensityFactor,
@@ -97,6 +112,7 @@ class TrainingLoadCalculator(
             hrTss = hrTss,
             // TRIMP only exists if a strap actually reported something.
             trimp = trimpAccumulator.takeIf { heartRateSeconds > 0L },
+            vamMetersPerHour = vam,
             workKj = workJoules / 1000.0,
             currentHrZone = currentHrZone,
             currentPowerZone = currentPowerZone,
@@ -121,6 +137,13 @@ class TrainingLoadCalculator(
             secondsInHrZone[zone] = (secondsInHrZone[zone] ?: 0L) + 1L
             // Edwards TRIMP: each minute counts as many times as its zone number.
             trimpAccumulator += zone / 60.0
+        }
+
+        second.altitudeM?.let { altitude ->
+            altitudeWindow.addLast(second.timestampMs to altitude)
+            while (altitudeWindow.size > 1 && second.timestampMs - altitudeWindow.first().first > vamWindowMs) {
+                altitudeWindow.removeFirst()
+            }
         }
 
         val watts = second.powerWatts ?: return
