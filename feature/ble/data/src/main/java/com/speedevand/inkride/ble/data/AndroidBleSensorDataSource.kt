@@ -13,6 +13,7 @@ import android.os.Build
 import androidx.core.content.ContextCompat
 import com.speedevand.inkride.core.domain.ble.BleSample
 import com.speedevand.inkride.core.domain.ble.BleSensorDataSource
+import com.speedevand.inkride.core.domain.ble.PairedSensors
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import java.util.concurrent.ConcurrentHashMap
@@ -76,11 +77,8 @@ class AndroidBleSensorDataSource(
 
     override fun observeSamples(): Flow<BleSample> = samples
 
-    override fun connect(
-        hrmAddress: String?,
-        cadenceAddress: String?,
-    ) {
-        val desired = setOfNotNull(hrmAddress, cadenceAddress)
+    override fun connect(sensors: PairedSensors) {
+        val desired = sensors.addresses
         if (desired == connectedAddresses) return
         disconnect()
         if (desired.isEmpty()) return

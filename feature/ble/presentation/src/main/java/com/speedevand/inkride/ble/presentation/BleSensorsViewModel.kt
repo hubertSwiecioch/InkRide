@@ -108,6 +108,7 @@ class BleSensorsViewModel(
                 when (type) {
                     BleSensorType.HEART_RATE -> settings.copy(pairedHrmAddress = address)
                     BleSensorType.CADENCE -> settings.copy(pairedCadenceAddress = address)
+                    BleSensorType.POWER -> settings.copy(pairedPowerAddress = address)
                 }
             userSettingsRepository.save(updated).onFailure { error ->
                 _events.send(BleSensorsEvent.ShowError(error.toUiText()))

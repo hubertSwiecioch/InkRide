@@ -12,7 +12,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Validates MIGRATION_6_7 and MIGRATION_7_8 against the exported schema
+ * Validates MIGRATION_6_7, MIGRATION_7_8 and MIGRATION_8_9 against the exported schema
  * snapshots. Only 6 → 7 onwards can be checked this way: `exportSchema` was
  * switched on at version 6, so no snapshot exists for versions 4 or 5.
  * Migrations 4 → 5 and 5 → 6 stay covered by the hand-built Robolectric
@@ -121,6 +121,41 @@ class AppDatabaseMigrationTest {
             assertThat(cursor.moveToFirst()).isTrue()
             assertThat(cursor.getInt(0)).isEqualTo(0)
         }
+    }
+
+    @Test
+    fun migrate8To9AddsThePairedPowerAddressAndKeepsTheOtherPairedSensors() {
+        helper.createDatabase(TEST_DB, 8).use { db ->
+            db.execSQL(
+                """
+                INSERT INTO user_settings (
+                    id, weightKg, age, bikeWeightKg, bikeType, languageCode, units,
+                    showDistance, showMovingTime, showAverageSpeed, showMaxSpeed,
+                    showElevationGain, showCalories, showAltitude, showGrade,
+                    showCompass, showPower, keepScreenOn, hasCompletedOnboarding,
+                    pairedHrmAddress, pairedCadenceAddress
+                ) VALUES (
+                    1, 82, 41, 9.5, 'ROAD', 'pl', 'METRIC', 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                    'AA:BB:CC:DD:EE:01', 'AA:BB:CC:DD:EE:02'
+                )
+                """.trimIndent(),
+            )
+        }
+
+        val migrated = helper.runMigrationsAndValidate(TEST_DB, 9, true, MIGRATION_8_9)
+
+        migrated
+            .query(
+                "SELECT pairedHrmAddress, pairedCadenceAddress, pairedPowerAddress FROM user_settings WHERE id = 1",
+            ).use { cursor ->
+                assertThat(cursor.moveToFirst()).isTrue()
+                // The sensors already paired must survive untouched...
+                assertThat(cursor.getString(0)).isEqualTo("AA:BB:CC:DD:EE:01")
+                assertThat(cursor.getString(1)).isEqualTo("AA:BB:CC:DD:EE:02")
+                // ...and the new column starts null: nobody has paired a meter yet,
+                // and null is what "no power meter" means everywhere else.
+                assertThat(cursor.isNull(2)).isTrue()
+            }
     }
 
     @Test

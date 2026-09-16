@@ -4,6 +4,7 @@ import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.content.ContextWrapper
 import androidx.test.core.app.ApplicationProvider
+import com.speedevand.inkride.core.domain.ble.PairedSensors
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -32,6 +33,6 @@ class AndroidBleSensorDataSourceConnectTest {
         // A ride can (re)enter this path from RideTracker's background
         // settings collector with an already-paired address, with no UI
         // permission prompt in between -- so this must fail soft, not throw.
-        dataSource.connect(hrmAddress = device.address, cadenceAddress = null)
+        dataSource.connect(PairedSensors(hrmAddress = device.address))
     }
 }

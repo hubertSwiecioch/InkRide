@@ -3,6 +3,7 @@ package com.speedevand.inkride.core.domain.tracking
 import com.speedevand.inkride.core.domain.Result
 import com.speedevand.inkride.core.domain.ble.BleSample
 import com.speedevand.inkride.core.domain.ble.BleSensorDataSource
+import com.speedevand.inkride.core.domain.ble.PairedSensors
 import com.speedevand.inkride.core.domain.history.RideHistoryRepository
 import com.speedevand.inkride.core.domain.history.RideLapRepository
 import com.speedevand.inkride.core.domain.history.RideRecord
@@ -455,9 +456,14 @@ class RideTracker(
                     launch {
                         userSettingsRepository
                             .observeSettings()
-                            .map { it.pairedHrmAddress to it.pairedCadenceAddress }
-                            .distinctUntilChanged()
-                            .collect { (hrm, cadence) -> bleSensorDataSource.connect(hrm, cadence) }
+                            .map {
+                                PairedSensors(
+                                    hrmAddress = it.pairedHrmAddress,
+                                    cadenceAddress = it.pairedCadenceAddress,
+                                    powerAddress = it.pairedPowerAddress,
+                                )
+                            }.distinctUntilChanged()
+                            .collect { bleSensorDataSource.connect(it) }
                     }
                 // BLE notifications arrive independently of GPS fixes; fold each new
                 // sample straight into the published metrics so HR/cadence stay live

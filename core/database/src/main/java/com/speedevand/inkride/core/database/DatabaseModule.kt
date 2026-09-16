@@ -130,6 +130,21 @@ val MIGRATION_7_8 =
         }
     }
 
+/**
+ * v8 → v9: adds `pairedPowerAddress` to `user_settings`, so a paired cycling
+ * power meter (GATT 0x1818) is remembered across launches the same way the HRM
+ * and cadence sensors already are.
+ *
+ * Nullable with no default: a rider who has never paired a meter has no address
+ * to record, and null is what "no meter" means everywhere else in the column.
+ */
+val MIGRATION_8_9 =
+    object : Migration(8, 9) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE `user_settings` ADD COLUMN `pairedPowerAddress` TEXT")
+        }
+    }
+
 val databaseModule =
     module {
         single {
@@ -138,7 +153,7 @@ val databaseModule =
                     androidContext(),
                     AppDatabase::class.java,
                     "inkride.db",
-                ).addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+                ).addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
                 // No destructive fallback: it silently wipes every recorded ride
                 // when a migration is missing. Losing a rider's history is a worse
                 // outcome than failing loudly, and AppDatabaseMigrationTest is what

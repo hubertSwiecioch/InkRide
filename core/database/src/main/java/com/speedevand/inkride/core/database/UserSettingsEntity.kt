@@ -25,6 +25,7 @@ data class UserSettingsEntity(
     val keepScreenOn: Boolean = true,
     val pairedHrmAddress: String? = null,
     val pairedCadenceAddress: String? = null,
+    val pairedPowerAddress: String? = null,
     val maxSpeedAlertKmh: Double? = null,
     val hrZoneMinBpm: Int? = null,
     val hrZoneMaxBpm: Int? = null,

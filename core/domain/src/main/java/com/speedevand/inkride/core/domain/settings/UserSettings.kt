@@ -32,6 +32,7 @@ data class UserSettings(
     // MAC addresses of paired BLE sensors; null when none is paired.
     val pairedHrmAddress: String? = null,
     val pairedCadenceAddress: String? = null,
+    val pairedPowerAddress: String? = null,
     // Speed / heart-rate alert thresholds (each field null = that alert off).
     val alerts: AlertConfig = AlertConfig(),
     // Active bike profile; when set and resolvable, its weight/type drive the
