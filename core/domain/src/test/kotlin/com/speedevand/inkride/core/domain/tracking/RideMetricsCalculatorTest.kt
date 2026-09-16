@@ -2,9 +2,12 @@ package com.speedevand.inkride.core.domain.tracking
 
 import assertk.assertThat
 import assertk.assertions.isEqualTo
+import assertk.assertions.isFalse
 import assertk.assertions.isGreaterThan
 import assertk.assertions.isLessThan
 import assertk.assertions.isNotNull
+import assertk.assertions.isNull
+import assertk.assertions.isTrue
 import assertk.assertions.isZero
 import com.speedevand.inkride.core.domain.settings.UserSettings
 import org.junit.jupiter.api.Test
@@ -15,6 +18,85 @@ class RideMetricsCalculatorTest {
     // warm-up gate itself is covered in its own section below.
     private val calculator = RideMetricsCalculator(warmupReliableFixes = 1)
     private val settings = UserSettings(weightKg = 75, age = 32)
+
+    @Test
+    fun `speed decays to zero and is flagged stale after the GPS fix window lapses`() {
+        val calculator = RideMetricsCalculator()
+        val settings = UserSettings(weightKg = 75, age = 30)
+
+        calculator.process(
+            RideSensorSample(timestampMs = 0L, latitude = 52.0, longitude = 0.0, speedFromGpsMps = 8.0, accuracyM = 4.0f),
+            settings,
+        )
+        repeat(4) { step ->
+            calculator.process(
+                RideSensorSample(
+                    timestampMs = 1_000L * (step + 1),
+                    latitude = 52.0 + 0.000072 * (step + 1),
+                    longitude = 0.0,
+                    speedFromGpsMps = 8.0,
+                    accuracyM = 4.0f,
+                ),
+                settings,
+            )
+        }
+
+        // Barometer-only samples: no position, so nothing refreshes the speed.
+        val justInsideWindow =
+            calculator.process(RideSensorSample(timestampMs = 6_500L, altitudeFromBarometerM = 100.0), settings)
+        val pastWindow =
+            calculator.process(RideSensorSample(timestampMs = 9_000L, altitudeFromBarometerM = 100.0), settings)
+
+        assertThat(justInsideWindow.currentSpeedKmh).isGreaterThan(0.0)
+        assertThat(justInsideWindow.isSpeedStale).isFalse()
+        assertThat(pastWindow.currentSpeedKmh).isEqualTo(0.0)
+        assertThat(pastWindow.isSpeedStale).isTrue()
+    }
+
+    @Test
+    fun `speed staleness anchors on first-sample location even with no subsequent fixes`() {
+        // Regression test: when the very first sample carries a position and GPS
+        // then drops before a second fix arrives (e.g. acquired in a garage,
+        // lost on the way out), lastLocationSampleAtMs must still be set so
+        // staleness anchoring works. Speed stays 0 here because the warm-up gate
+        // has not been satisfied by a single fix — that is the intended behaviour.
+        val calculator = RideMetricsCalculator()
+        val settings = UserSettings(weightKg = 75, age = 30)
+
+        // Single location sample at time 0.
+        calculator.process(
+            RideSensorSample(timestampMs = 0L, latitude = 52.0, longitude = 0.0, speedFromGpsMps = 8.0, accuracyM = 4.0f),
+            settings,
+        )
+
+        // No more location samples — GPS is lost. Only barometer-only samples follow.
+        val justInsideWindow =
+            calculator.process(RideSensorSample(timestampMs = 1_500L, altitudeFromBarometerM = 100.0), settings)
+        val pastWindow =
+            calculator.process(RideSensorSample(timestampMs = 4_000L, altitudeFromBarometerM = 100.0), settings)
+
+        assertThat(justInsideWindow.isSpeedStale).isFalse()
+        assertThat(pastWindow.currentSpeedKmh).isEqualTo(0.0)
+        assertThat(pastWindow.isSpeedStale).isTrue()
+    }
+
+    @Test
+    fun `bearing survives more than one consecutive sample without a heading`() {
+        val calculator = RideMetricsCalculator()
+        val settings = UserSettings(weightKg = 75, age = 30)
+
+        calculator.process(
+            RideSensorSample(timestampMs = 0L, latitude = 52.0, longitude = 0.0, bearingDegrees = 90f, accuracyM = 4.0f),
+            settings,
+        )
+
+        calculator.process(RideSensorSample(timestampMs = 500L, altitudeFromBarometerM = 100.0), settings)
+        val second = calculator.process(RideSensorSample(timestampMs = 1_000L, altitudeFromBarometerM = 100.0), settings)
+        val pastWindow = calculator.process(RideSensorSample(timestampMs = 9_000L, altitudeFromBarometerM = 100.0), settings)
+
+        assertThat(second.bearingDegrees).isEqualTo(90f)
+        assertThat(pastWindow.bearingDegrees).isNull()
+    }
 
     @Test
     fun `first sample initializes session start`() {
@@ -909,6 +991,36 @@ class RideMetricsCalculatorTest {
         // Distance accumulates via the significant-movement path once warmed up,
         // rather than staying frozen at zero for the whole ride.
         assertThat(metrics.distanceKm).isGreaterThan(0.0)
+    }
+
+    @Test
+    fun `isMoving is true when displacement confirms movement despite a low Doppler speed`() {
+        val calculator = RideMetricsCalculator()
+        val settings = UserSettings(weightKg = 75, age = 30)
+
+        // Two fixes 8 m apart over 1 s with a tight accuracy: displacement is far
+        // above the accuracy-scaled threshold, so the rider is unambiguously moving
+        // even though the chipset reports a near-zero Doppler speed.
+        calculator.process(
+            RideSensorSample(timestampMs = 0L, latitude = 52.0, longitude = 0.0, speedFromGpsMps = 0.2, accuracyM = 4.0f),
+            settings,
+        )
+        var metrics = RideMetrics()
+        repeat(4) { step ->
+            metrics =
+                calculator.process(
+                    RideSensorSample(
+                        timestampMs = 1_000L * (step + 1),
+                        latitude = 52.0 + 0.000072 * (step + 1),
+                        longitude = 0.0,
+                        speedFromGpsMps = 0.2,
+                        accuracyM = 4.0f,
+                    ),
+                    settings,
+                )
+        }
+
+        assertThat(metrics.isMoving).isTrue()
     }
 
     private fun baroSampleAt(

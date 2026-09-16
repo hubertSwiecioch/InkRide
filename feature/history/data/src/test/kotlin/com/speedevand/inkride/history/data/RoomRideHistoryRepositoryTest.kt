@@ -13,6 +13,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 
@@ -152,7 +153,8 @@ class RoomRideHistoryRepositoryTest {
         private val entitiesFlow = MutableStateFlow<List<RideHistoryEntity>>(emptyList())
         var insertException: Exception? = null
 
-        override fun observeAll(): Flow<List<RideHistoryEntity>> = entitiesFlow
+        // Mirrors the production query's `WHERE isComplete = 1`.
+        override fun observeAll(): Flow<List<RideHistoryEntity>> = entitiesFlow.map { entities -> entities.filter { it.isComplete } }
 
         override suspend fun getById(id: Long): RideHistoryEntity? = entitiesFlow.value.find { it.id == id }
 
@@ -172,6 +174,12 @@ class RoomRideHistoryRepositoryTest {
             insertException?.let { throw it }
             entitiesFlow.value = entitiesFlow.value + ride
             return ride.id
+        }
+
+        override suspend fun getUnfinished(): List<RideHistoryEntity> = entitiesFlow.value.filterNot { it.isComplete }
+
+        override suspend fun update(ride: RideHistoryEntity) {
+            entitiesFlow.value = entitiesFlow.value.map { if (it.id == ride.id) ride else it }
         }
 
         override suspend fun deleteById(id: Long) {

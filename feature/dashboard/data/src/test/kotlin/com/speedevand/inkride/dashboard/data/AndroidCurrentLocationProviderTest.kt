@@ -5,10 +5,12 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.location.Location
 import android.location.LocationManager
+import android.os.Build
 import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
 import assertk.assertThat
 import assertk.assertions.isEqualTo
+import assertk.assertions.isNotEqualTo
 import com.speedevand.inkride.core.domain.Result
 import com.speedevand.inkride.core.domain.tracking.LocationError
 import com.speedevand.inkride.core.domain.tracking.LocationFix
@@ -28,6 +30,7 @@ import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
+import org.robolectric.annotation.Config
 import java.time.Duration
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -152,6 +155,65 @@ class AndroidCurrentLocationProviderTest {
         shadowOf(Looper.getMainLooper()).idle()
 
         assertThat(result).isEqualTo(Result.Success(LocationFix(10.0, 10.0)))
+        scope.cancel()
+    }
+
+    // `ShadowLocationManager` has no `lastRequestedSingleUpdateProvider`-style
+    // accessor for the modern `getCurrentLocation()` request, so the deprecated
+    // path is ruled out indirectly: the shadow registers `getCurrentLocation()`
+    // requests under its own internal `CurrentLocationTransport` listener
+    // (Robolectric 4.16.1's `ShadowLocationManager#getCurrentLocation` is
+    // `@Implementation(minSdk = 30)`), whereas `requestSingleUpdate()` registers
+    // the caller-supplied `LocationListener` directly. Observing which kind of
+    // listener got registered is what's actually exposed by this harness.
+    @Test
+    @Config(sdk = [Build.VERSION_CODES.R])
+    fun `on API 30 and above a fresh fix is requested through getCurrentLocation, not the deprecated requestSingleUpdate`() {
+        shadowOf(context).grantPermissions(Manifest.permission.ACCESS_FINE_LOCATION)
+        // No cached fix, no active ride: the provider must fall through to a fresh request.
+        val provider = AndroidCurrentLocationProvider(context, rideTracker)
+
+        var result: Result<LocationFix, LocationError>? = null
+        val scope = CoroutineScope(UnconfinedTestDispatcher())
+        scope.launch { result = provider.getCurrentLocation() }
+
+        val registeredListener = shadowOf(locationManager).locationUpdateListeners.single()
+        assertThat(registeredListener::class.simpleName).isEqualTo("CurrentLocationTransport")
+
+        val fix =
+            Location(LocationManager.GPS_PROVIDER).apply {
+                latitude = 52.0
+                longitude = 21.0
+            }
+        shadowOf(locationManager).simulateLocation(fix)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertThat(result).isEqualTo(Result.Success(LocationFix(52.0, 21.0)))
+        scope.cancel()
+    }
+
+    @Test
+    @Config(sdk = [Build.VERSION_CODES.P])
+    fun `below API 30 a fresh fix still goes through the legacy requestSingleUpdate listener`() {
+        shadowOf(context).grantPermissions(Manifest.permission.ACCESS_FINE_LOCATION)
+        val provider = AndroidCurrentLocationProvider(context, rideTracker)
+
+        var result: Result<LocationFix, LocationError>? = null
+        val scope = CoroutineScope(UnconfinedTestDispatcher())
+        scope.launch { result = provider.getCurrentLocation() }
+
+        val registeredListener = shadowOf(locationManager).locationUpdateListeners.single()
+        assertThat(registeredListener::class.simpleName).isNotEqualTo("CurrentLocationTransport")
+
+        val fix =
+            Location(LocationManager.GPS_PROVIDER).apply {
+                latitude = 52.0
+                longitude = 21.0
+            }
+        shadowOf(locationManager).simulateLocation(fix)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertThat(result).isEqualTo(Result.Success(LocationFix(52.0, 21.0)))
         scope.cancel()
     }
 

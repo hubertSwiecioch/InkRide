@@ -30,6 +30,7 @@ import com.speedevand.inkride.core.testing.fakes.FakeCurrentLocationProvider
 import com.speedevand.inkride.core.testing.fakes.FakePlaceSearchService
 import com.speedevand.inkride.core.testing.fakes.FakeRideHistoryRepository
 import com.speedevand.inkride.core.testing.fakes.FakeRideLapRepository
+import com.speedevand.inkride.core.testing.fakes.FakeRideSampleRepository
 import com.speedevand.inkride.core.testing.fakes.FakeRideSensorDataSource
 import com.speedevand.inkride.core.testing.fakes.FakeRideTrackPointRepository
 import com.speedevand.inkride.core.testing.fakes.FakeRoutingService
@@ -58,6 +59,7 @@ class DestinationSearchScreenTest {
             metricsCalculator = RideMetricsCalculator(),
             historyRepository = FakeRideHistoryRepository(),
             trackPointRepository = FakeRideTrackPointRepository(),
+            sampleRepository = FakeRideSampleRepository(),
             lapRepository = FakeRideLapRepository(),
             bleSensorDataSource = FakeBleSensorDataSource(),
             userSettingsRepository = FakeUserSettingsRepository(TestSettings.default()),

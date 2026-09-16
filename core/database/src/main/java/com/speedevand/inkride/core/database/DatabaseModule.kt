@@ -96,6 +96,40 @@ val MIGRATION_6_7 =
         }
     }
 
+/**
+ * v7 → v8: adds the 1 Hz `ride_sample` stream and the `isComplete` flag that
+ * lets an interrupted ride be recovered on next launch.
+ *
+ * `ride_sample` is deliberately separate from `ride_track_point`: that table
+ * requires a position, so it would drop heart rate, power and cadence for the
+ * whole of a tunnel. Samples cascade from their ride, so deleting a ride can
+ * never leave the stream orphaned.
+ *
+ * `isComplete` defaults to 1 so every pre-existing ride is grandfathered as
+ * finished — the same treatment `hasCompletedOnboarding` gets in
+ * [MIGRATION_6_7]. Nothing is backfilled into `ride_sample`: the stream was
+ * never recorded for those rides, so there is nothing to invent.
+ */
+val MIGRATION_7_8 =
+    object : Migration(7, 8) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `ride_sample` (" +
+                    "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                    "`rideId` INTEGER NOT NULL, " +
+                    "`timestampMs` INTEGER NOT NULL, " +
+                    "`latitude` REAL, `longitude` REAL, `altitudeM` REAL, " +
+                    "`speedKmh` REAL, `gradePercent` REAL, " +
+                    "`powerWatts` INTEGER, `powerSource` TEXT, " +
+                    "`heartRateBpm` INTEGER, `cadenceRpm` INTEGER, " +
+                    "FOREIGN KEY(`rideId`) REFERENCES `ride_history`(`id`) " +
+                    "ON UPDATE NO ACTION ON DELETE CASCADE )",
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_ride_sample_rideId` ON `ride_sample` (`rideId`)")
+            db.execSQL("ALTER TABLE `ride_history` ADD COLUMN `isComplete` INTEGER NOT NULL DEFAULT 1")
+        }
+    }
+
 val databaseModule =
     module {
         single {
@@ -104,8 +138,11 @@ val databaseModule =
                     androidContext(),
                     AppDatabase::class.java,
                     "inkride.db",
-                ).addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
-                .fallbackToDestructiveMigration()
+                ).addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+                // No destructive fallback: it silently wipes every recorded ride
+                // when a migration is missing. Losing a rider's history is a worse
+                // outcome than failing loudly, and AppDatabaseMigrationTest is what
+                // keeps the loud failure from ever reaching a device.
                 .build()
         }
 
@@ -114,4 +151,5 @@ val databaseModule =
         single { get<AppDatabase>().rideTrackPointDao() }
         single { get<AppDatabase>().rideLapDao() }
         single { get<AppDatabase>().bikeProfileDao() }
+        single { get<AppDatabase>().rideSampleDao() }
     }

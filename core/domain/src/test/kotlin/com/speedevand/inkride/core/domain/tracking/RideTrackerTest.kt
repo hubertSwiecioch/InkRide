@@ -1,12 +1,15 @@
 package com.speedevand.inkride.core.domain.tracking
 
 import assertk.assertThat
+import assertk.assertions.containsExactly
 import assertk.assertions.hasSize
 import assertk.assertions.isEmpty
 import assertk.assertions.isEqualTo
 import assertk.assertions.isFalse
 import assertk.assertions.isGreaterThan
 import assertk.assertions.isInstanceOf
+import assertk.assertions.isLessThan
+import assertk.assertions.isNotNull
 import assertk.assertions.isNull
 import assertk.assertions.isTrue
 import com.speedevand.inkride.core.domain.DataError
@@ -17,6 +20,8 @@ import com.speedevand.inkride.core.domain.ble.BleSensorDataSource
 import com.speedevand.inkride.core.domain.history.RideHistoryRepository
 import com.speedevand.inkride.core.domain.history.RideLapRepository
 import com.speedevand.inkride.core.domain.history.RideRecord
+import com.speedevand.inkride.core.domain.history.RideSample
+import com.speedevand.inkride.core.domain.history.RideSampleRepository
 import com.speedevand.inkride.core.domain.history.RideTrackPoint
 import com.speedevand.inkride.core.domain.history.RideTrackPointRepository
 import com.speedevand.inkride.core.domain.settings.AlertConfig
@@ -119,6 +124,35 @@ class RideTrackerTest {
 
             // Moving again: auto-resume.
             sensor.samples.emit(sampleAt(5500L, latitude = 0.0002, longitude = 0.0, speedFromGpsMps = 8.0, accuracy = 5.0f))
+            assertThat(tracker.state.value.status).isEqualTo(TrackingStatus.TRACKING)
+        }
+
+    @Test
+    fun `auto-pause does not engage while the calculator still reports movement`() =
+        runTest {
+            val sensor = FakeSensorDataSource()
+            val tracker = newTracker(testScheduler, sensor, autoPauseDelayMs = 2_000L)
+
+            tracker.start()
+            // A crawl: ~8 m of displacement per 1 s fix at a tight 4 m accuracy
+            // confirms movement, but the Doppler speed stays near zero the whole
+            // time so currentSpeedKmh never clears autoPauseSpeedKmh (1.5). Before
+            // the isMoving contract this silently auto-paused mid-climb once the
+            // sample timestamps crossed autoPauseDelayMs.
+            sensor.samples.emit(sampleAt(0L, latitude = 52.0, longitude = 0.0, speedFromGpsMps = 0.2, accuracy = 4.0f))
+            repeat(4) { step ->
+                sensor.samples.emit(
+                    sampleAt(
+                        1_000L * (step + 1),
+                        latitude = 52.0 + 0.000072 * (step + 1),
+                        longitude = 0.0,
+                        speedFromGpsMps = 0.2,
+                        accuracy = 4.0f,
+                    ),
+                )
+            }
+
+            assertThat(tracker.state.value.metrics.currentSpeedKmh).isLessThan(1.5)
             assertThat(tracker.state.value.status).isEqualTo(TrackingStatus.TRACKING)
         }
 
@@ -371,10 +405,164 @@ class RideTrackerTest {
             assertThat(tracker.state.value.metrics.heartRateBpm).isEqualTo(145)
         }
 
+    @Test
+    fun `a ride row is created at start so an interrupted ride survives`() =
+        runTest {
+            val sensor = FakeSensorDataSource()
+            val history = FakeHistoryRepository()
+            val tracker = newTracker(testScheduler, sensor, history)
+
+            tracker.start()
+
+            // The row must exist before any sample arrives — that is the whole point.
+            assertThat(history.allRides).hasSize(1)
+            assertThat(history.allRides.single().isComplete).isFalse()
+            // ...and stay out of history until the ride is actually finished.
+            assertThat(history.saved).isEmpty()
+        }
+
+    @Test
+    fun `the in-progress row is finished in place rather than inserted again at stop`() =
+        runTest {
+            val sensor = FakeSensorDataSource()
+            val history = FakeHistoryRepository()
+            val tracker = newTracker(testScheduler, sensor, history)
+
+            tracker.start()
+            val rideId = history.allRides.single().id
+            sensor.samples.emit(sampleAt(0L, latitude = 0.0, longitude = 0.0, speedFromGpsMps = 10.0, accuracy = 5.0f))
+            sensor.samples.emit(sampleAt(1000L, latitude = 0.0001, longitude = 0.0, speedFromGpsMps = 10.0, accuracy = 5.0f))
+
+            tracker.stop()
+
+            // One row throughout: the ride keeps the id its samples were written
+            // against, rather than a second row appearing at stop.
+            assertThat(history.allRides).hasSize(1)
+            assertThat(history.allRides.single().id).isEqualTo(rideId)
+            assertThat(history.allRides.single().isComplete).isTrue()
+            assertThat(history.saved.single().distanceKm).isGreaterThan(0.01)
+        }
+
+    @Test
+    fun `a ride below the distance floor leaves no row behind`() =
+        runTest {
+            val sensor = FakeSensorDataSource()
+            val history = FakeHistoryRepository()
+            val tracker = newTracker(testScheduler, sensor, history)
+
+            tracker.start()
+            sensor.samples.emit(sampleAt(0L, latitude = 0.0, longitude = 0.0, speedFromGpsMps = 0.0, accuracy = 5.0f))
+            sensor.samples.emit(sampleAt(1000L, latitude = 0.0, longitude = 0.0, speedFromGpsMps = 0.0, accuracy = 5.0f))
+
+            tracker.stop()
+
+            // Not merely absent from history: the placeholder row is deleted, so
+            // it cannot come back as something to "recover" on the next launch.
+            assertThat(history.allRides).isEmpty()
+        }
+
+    @Test
+    fun `recovery finishes an interrupted ride that covered enough distance`() =
+        runTest {
+            val sensor = FakeSensorDataSource()
+            val history = FakeHistoryRepository()
+            val samples = FakeSampleRepository()
+            val tracker = newTracker(testScheduler, sensor, history, samples)
+
+            val rideId = (history.startRide(startedAt = 1_000L) as Result.Success).data
+            samples.saveSamples(
+                rideId,
+                listOf(
+                    RideSample(timestampMs = 1_000L, latitude = 52.0, longitude = 0.0, speedKmh = 20.0),
+                    RideSample(timestampMs = 61_000L, latitude = 52.003, longitude = 0.0, speedKmh = 20.0),
+                ),
+            )
+
+            tracker.recoverUnfinishedRides()
+
+            val recovered = history.allRides.single()
+            assertThat(recovered.isComplete).isTrue()
+            // ~333 m between those two latitudes, rebuilt from the samples alone.
+            assertThat(recovered.distanceKm).isGreaterThan(0.3)
+            assertThat(recovered.maxSpeedKmh).isEqualTo(20.0)
+            // Both samples cleared the auto-pause threshold, so both count as moving.
+            assertThat(recovered.movingTimeSeconds).isEqualTo(2L)
+            assertThat(recovered.elapsedTimeSeconds).isEqualTo(60L)
+        }
+
+    @Test
+    fun `recovery deletes an interrupted ride that never went anywhere`() =
+        runTest {
+            val sensor = FakeSensorDataSource()
+            val history = FakeHistoryRepository()
+            val tracker = newTracker(testScheduler, sensor, history)
+
+            history.startRide(startedAt = 1_000L)
+
+            tracker.recoverUnfinishedRides()
+
+            assertThat(history.allRides).isEmpty()
+        }
+
+    @Test
+    fun `recovery leaves finished rides alone`() =
+        runTest {
+            val sensor = FakeSensorDataSource()
+            val history = FakeHistoryRepository()
+            val tracker = newTracker(testScheduler, sensor, history)
+
+            val finished =
+                RideRecord(
+                    id = 0L,
+                    startTimestamp = 1_000L,
+                    endTimestamp = 2_000L,
+                    distanceKm = 12.5,
+                    movingTimeSeconds = 1_800L,
+                    elapsedTimeSeconds = 2_000L,
+                    averageSpeedKmh = 25.0,
+                    maxSpeedKmh = 42.0,
+                    elevationGainM = 120.0,
+                    caloriesKcal = 400.0,
+                )
+            history.save(finished)
+
+            tracker.recoverUnfinishedRides()
+
+            // A completed ride is not an interrupted one: recovery must not
+            // rewrite its aggregates from a sample stream it no longer has.
+            assertThat(history.saved.single().distanceKm).isEqualTo(12.5)
+            assertThat(history.saved.single().maxSpeedKmh).isEqualTo(42.0)
+        }
+
+    @Test
+    fun `samples recorded during a ride are flushed against the ride's own row`() =
+        runTest {
+            val sensor = FakeSensorDataSource()
+            val history = FakeHistoryRepository()
+            val samples = FakeSampleRepository()
+            val tracker = newTracker(testScheduler, sensor, history, samples)
+
+            tracker.start()
+            val rideId = history.allRides.single().id
+            // Three seconds of riding: one buffered sample per second.
+            sensor.samples.emit(sampleAt(1_000L, latitude = 0.0, longitude = 0.0, speedFromGpsMps = 10.0, accuracy = 5.0f))
+            sensor.samples.emit(sampleAt(2_000L, latitude = 0.0001, longitude = 0.0, speedFromGpsMps = 10.0, accuracy = 5.0f))
+            sensor.samples.emit(sampleAt(3_000L, latitude = 0.0002, longitude = 0.0, speedFromGpsMps = 10.0, accuracy = 5.0f))
+
+            tracker.stop()
+
+            // The tail is flushed at stop, keyed by the row created at start —
+            // no batch is stranded waiting for the flush interval to elapse.
+            assertThat(samples.saved[rideId]).isNotNull()
+            assertThat(samples.saved.getValue(rideId).map { it.timestampMs })
+                .containsExactly(1_000L, 2_000L, 3_000L)
+        }
+
     private fun newTracker(
         scheduler: TestCoroutineScheduler,
         sensor: FakeSensorDataSource,
         history: FakeHistoryRepository = FakeHistoryRepository(),
+        samples: FakeSampleRepository = FakeSampleRepository(),
         autoPauseDelayMs: Long = 3_000L,
         ble: FakeBleSensorDataSource = FakeBleSensorDataSource(),
         settings: UserSettings = this.settings,
@@ -386,6 +574,7 @@ class RideTrackerTest {
         metricsCalculator = RideMetricsCalculator(warmupReliableFixes = 1),
         historyRepository = history,
         trackPointRepository = FakeTrackPointRepository(),
+        sampleRepository = samples,
         lapRepository = FakeLapRepository(),
         bleSensorDataSource = ble,
         userSettingsRepository = FakeUserSettingsRepository(settings),
@@ -426,21 +615,84 @@ private class FakeSensorDataSource : RideSensorDataSource {
     }
 }
 
+/**
+ * Models the real row lifecycle rather than a write log: a ride row is inserted
+ * incomplete at start, updated to complete at stop, and deleted outright when it
+ * never covered enough ground. [saved] is therefore what history would actually
+ * show, and [allRides] is the raw table including a ride still in progress.
+ */
 private class FakeHistoryRepository : RideHistoryRepository {
-    val saved = mutableListOf<RideRecord>()
+    val allRides = mutableListOf<RideRecord>()
 
-    override fun observeAll(): Flow<List<RideRecord>> = MutableStateFlow(emptyList())
+    /** Only finished rides — what `observeAll`'s `WHERE isComplete = 1` would return. */
+    val saved: List<RideRecord> get() = allRides.filter { it.isComplete }
 
-    override suspend fun getById(id: Long): Result<RideRecord, DataError.Local> = Result.Error(DataError.Local.NOT_FOUND)
+    private var nextId = 1L
+
+    override fun observeAll(): Flow<List<RideRecord>> = MutableStateFlow(saved)
+
+    override suspend fun getById(id: Long): Result<RideRecord, DataError.Local> =
+        allRides.firstOrNull { it.id == id }?.let { Result.Success(it) }
+            ?: Result.Error(DataError.Local.NOT_FOUND)
 
     override suspend fun save(ride: RideRecord): Result<Long, DataError.Local> {
-        saved.add(ride)
-        return Result.Success(saved.size.toLong())
+        val id = if (ride.id == 0L) nextId++ else ride.id
+        allRides.removeAll { it.id == id }
+        allRides.add(ride.copy(id = id))
+        return Result.Success(id)
     }
 
-    override suspend fun deleteById(id: Long): EmptyResult<DataError.Local> = Result.Success(Unit)
+    override suspend fun startRide(startedAt: Long): Result<Long, DataError.Local> =
+        save(
+            RideRecord(
+                id = 0L,
+                startTimestamp = startedAt,
+                endTimestamp = startedAt,
+                distanceKm = 0.0,
+                movingTimeSeconds = 0L,
+                elapsedTimeSeconds = 0L,
+                averageSpeedKmh = 0.0,
+                maxSpeedKmh = 0.0,
+                elevationGainM = 0.0,
+                caloriesKcal = 0.0,
+                isComplete = false,
+            ),
+        )
 
-    override suspend fun deleteAll(): EmptyResult<DataError.Local> = Result.Success(Unit)
+    override suspend fun finishRide(ride: RideRecord): EmptyResult<DataError.Local> {
+        val index = allRides.indexOfFirst { it.id == ride.id }
+        if (index < 0) return Result.Error(DataError.Local.NOT_FOUND)
+        allRides[index] = ride.copy(isComplete = true)
+        return Result.Success(Unit)
+    }
+
+    override suspend fun getUnfinishedRides(): Result<List<RideRecord>, DataError.Local> =
+        Result.Success(allRides.filterNot { it.isComplete }.sortedBy { it.startTimestamp })
+
+    override suspend fun deleteById(id: Long): EmptyResult<DataError.Local> {
+        allRides.removeAll { it.id == id }
+        return Result.Success(Unit)
+    }
+
+    override suspend fun deleteAll(): EmptyResult<DataError.Local> {
+        allRides.clear()
+        return Result.Success(Unit)
+    }
+}
+
+private class FakeSampleRepository : RideSampleRepository {
+    val saved = mutableMapOf<Long, MutableList<RideSample>>()
+
+    override suspend fun saveSamples(
+        rideId: Long,
+        samples: List<RideSample>,
+    ): EmptyResult<DataError.Local> {
+        saved.getOrPut(rideId) { mutableListOf() } += samples
+        return Result.Success(Unit)
+    }
+
+    override suspend fun getSamples(rideId: Long): Result<List<RideSample>, DataError.Local> =
+        Result.Success(saved[rideId].orEmpty().sortedBy { it.timestampMs })
 }
 
 private class FakeTrackPointRepository : RideTrackPointRepository {

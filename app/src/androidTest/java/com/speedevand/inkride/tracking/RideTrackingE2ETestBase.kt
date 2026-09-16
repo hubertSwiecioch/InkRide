@@ -23,6 +23,10 @@ import com.speedevand.inkride.dashboard.presentation.DashboardTestTags
 import com.speedevand.inkride.tracking.data.trackingDataModule
 import com.speedevand.inkride.tracking.service.TrackingService
 import com.speedevand.inkride.tracking.support.RideSamples
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Before
@@ -71,11 +75,33 @@ abstract class RideTrackingE2ETestBase {
     val fakeSensorSource = FakeRideSensorDataSource()
     val fakeBleSource = FakeBleSensorDataSource()
 
+    // Held explicitly so [killTrackerWithoutStopping] can cancel it: the
+    // tracker's default scope is internal, and a process death has to take the
+    // tracker's coroutines with it rather than let them keep collecting.
+    private var trackerScope: CoroutineScope = newTrackerScope()
+
+    private fun newTrackerScope(): CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
     private val testModule: Module =
         module {
             single<RideSensorDataSource> { fakeSensorSource }
             single<BleSensorDataSource> { fakeBleSource }
-            single { RideTracker(get(), get(), get(), get(), get(), get(), get()) }
+            single {
+                RideTracker(
+                    get(),
+                    get(),
+                    get(),
+                    get(),
+                    get(),
+                    get(),
+                    get(),
+                    get(),
+                    // Short enough that a ride of a dozen seconds still gets its
+                    // samples onto disk before a simulated process death.
+                    sampleFlushIntervalMs = 5_000L,
+                    scope = trackerScope,
+                )
+            }
         }
 
     protected var scenario: ActivityScenario<MainActivity>? = null
@@ -121,6 +147,22 @@ abstract class RideTrackingE2ETestBase {
         unloadKoinModules(listOf(testModule))
         loadKoinModules(listOf(trackingDataModule, bleDataModule))
     }
+
+    /**
+     * Simulates process death: cancels the tracker's coroutines and drops the
+     * Koin instance *without* calling [RideTracker.stop], so no finish path ever
+     * runs — exactly what an OOM kill leaves behind. Only what already reached
+     * the database survives.
+     */
+    protected fun killTrackerWithoutStopping() {
+        trackerScope.cancel()
+        unloadKoinModules(listOf(testModule))
+        trackerScope = newTrackerScope()
+        loadKoinModules(listOf(testModule))
+    }
+
+    /** The fresh tracker the next launch would build, over the same database. */
+    protected fun restartTracker(): RideTracker = GlobalContext.get().get()
 
     // Monotonically increasing across a single test's lifetime (a fresh
     // RideTrackingE2ETestBase instance per @Test), so every feedMovingSteps

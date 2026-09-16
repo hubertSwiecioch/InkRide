@@ -7,8 +7,11 @@ import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
+import android.os.Build
+import android.os.CancellationSignal
 import android.os.Handler
 import android.os.Looper
+import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import com.speedevand.inkride.core.domain.Result
 import com.speedevand.inkride.core.domain.tracking.CurrentLocationProvider
@@ -29,8 +32,10 @@ import kotlinx.coroutines.suspendCancellableCoroutine
  * 2. [activeRidePosition] — if a ride is already TRACKING/PAUSED/AUTO_PAUSED,
  *    [RideTracker] already has a live, Kalman-filtered position; reuse it
  *    instead of starting a second, redundant GPS request.
- * 3. [requestFreshFix] — today's `requestSingleUpdate` behaviour, only
- *    reached when neither shortcut above has anything to offer.
+ * 3. [requestFreshFix] — an actual single-fix GPS request, only reached when
+ *    neither shortcut above has anything to offer. API 30+ goes through
+ *    `getCurrentLocation()`; older devices keep the deprecated
+ *    `requestSingleUpdate` path.
  */
 class AndroidCurrentLocationProvider(
     private val context: Context,
@@ -82,6 +87,38 @@ class AndroidCurrentLocationProvider(
 
     @SuppressLint("MissingPermission")
     private suspend fun requestFreshFix(): Result<LocationFix, LocationError> =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            requestFreshFixModern()
+        } else {
+            requestFreshFixLegacy()
+        }
+
+    @RequiresApi(Build.VERSION_CODES.R)
+    @SuppressLint("MissingPermission")
+    private suspend fun requestFreshFixModern(): Result<LocationFix, LocationError> =
+        suspendCancellableCoroutine { continuation ->
+            val cancellationSignal = CancellationSignal()
+            continuation.invokeOnCancellation { cancellationSignal.cancel() }
+            locationManager.getCurrentLocation(
+                LocationManager.GPS_PROVIDER,
+                cancellationSignal,
+                ContextCompat.getMainExecutor(context),
+            ) { location ->
+                if (!continuation.isActive) return@getCurrentLocation
+                val result =
+                    if (location == null) {
+                        // The platform resolves the consumer with null on timeout
+                        // or when the provider can't produce a fix.
+                        Result.Error(LocationError.TIMED_OUT)
+                    } else {
+                        Result.Success(LocationFix(location.latitude, location.longitude))
+                    }
+                continuation.resumeWith(kotlin.Result.success(result))
+            }
+        }
+
+    @SuppressLint("MissingPermission")
+    private suspend fun requestFreshFixLegacy(): Result<LocationFix, LocationError> =
         suspendCancellableCoroutine { continuation ->
             val handler = Handler(Looper.getMainLooper())
             lateinit var listener: LocationListener

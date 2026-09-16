@@ -90,6 +90,17 @@ class AndroidRideSensorDataSourceStartTest {
     }
 
     @Test
+    fun `location updates are requested with no minimum distance so stationary fixes keep arriving`() {
+        shadowOf(context).grantPermissions(Manifest.permission.ACCESS_FINE_LOCATION)
+        val dataSource = AndroidRideSensorDataSource(context)
+
+        dataSource.start()
+
+        val requests = shadowOf(locationManager).getLegacyLocationRequests(LocationManager.GPS_PROVIDER)
+        assertThat(requests.last().minUpdateDistanceMeters).isEqualTo(0f)
+    }
+
+    @Test
     fun `a simulated GPS fix flows through the real listener into an emitted sample`() =
         runTest {
             shadowOf(context).grantPermissions(Manifest.permission.ACCESS_FINE_LOCATION)
