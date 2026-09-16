@@ -15,9 +15,13 @@ val trackingDataModule =
         single<RideSensorDataSource> { AndroidRideSensorDataSource(get()) }
         singleOf(::CaloriesEstimator)
         single { RideMetricsCalculator(get()) }
-        singleOf(::TrainingLoadCalculator)
-        singleOf(::ThresholdDetector)
-        singleOf(::DecouplingCalculator)
+        // Constructed explicitly, not with singleOf: every parameter these
+        // three take is a tuning constant with a default (window lengths,
+        // factors, collaborators). singleOf would try to resolve each one from
+        // the graph and fail at app start rather than use the default.
+        single { TrainingLoadCalculator() }
+        single { ThresholdDetector() }
+        single { DecouplingCalculator() }
         // (sensorDataSource, metricsCalculator, historyRepository, trackPointRepository,
         //  sampleRepository, lapRepository, bleSensorDataSource, userSettingsRepository,
         //  routeFollower, heartRateFilter, trainingLoadCalculator, thresholdDetector,
