@@ -16,6 +16,7 @@ import com.speedevand.inkride.core.domain.onSuccess
 import com.speedevand.inkride.core.domain.settings.UserSettings
 import com.speedevand.inkride.core.domain.settings.UserSettingsRepository
 import com.speedevand.inkride.core.domain.tracking.training.AthleteThresholds
+import com.speedevand.inkride.core.domain.tracking.training.DecouplingCalculator
 import com.speedevand.inkride.core.domain.tracking.training.ThresholdDetector
 import com.speedevand.inkride.core.domain.tracking.training.TrainingLoadCalculator
 import com.speedevand.inkride.core.domain.tracking.training.TrainingMetrics
@@ -93,6 +94,7 @@ class RideTracker(
     private val heartRateFilter: HeartRateFilter = HeartRateFilter(),
     private val trainingLoadCalculator: TrainingLoadCalculator = TrainingLoadCalculator(),
     private val thresholdDetector: ThresholdDetector = ThresholdDetector(),
+    private val decouplingCalculator: DecouplingCalculator = DecouplingCalculator(),
     private val minSaveDistanceKm: Double = 0.01,
     // Smallest segment (km) that closes into an automatic final lap at stop.
     private val minLapDistanceKm: Double = 0.01,
@@ -819,10 +821,21 @@ class RideTracker(
             if (tailSamples.isNotEmpty()) {
                 sampleRepository.saveSamples(rideId, tailSamples)
             }
+            // Read the stream back once, after the tail flush, and use it for
+            // both post-ride analyses. What reached disk is what a later
+            // re-analysis would see, so the two cannot disagree.
+            val storedSamples =
+                when (val result = sampleRepository.getSamples(rideId)) {
+                    is Result.Success -> result.data
+                    is Result.Error -> emptyList()
+                }
+            val decoupling = decouplingCalculator.calculate(storedSamples)
             historyRepository
-                .finishRide(rideRecord(rideId, metrics, training, startedAt, endedAt, settings, isComplete = true))
-                .onSuccess { saveRideChildren(rideId, points, laps, samples = emptyList()) }
-            proposeThresholds(rideId, settings)
+                .finishRide(
+                    rideRecord(rideId, metrics, training, startedAt, endedAt, settings, isComplete = true)
+                        .copy(decouplingPercent = decoupling),
+                ).onSuccess { saveRideChildren(rideId, points, laps, samples = emptyList()) }
+            proposeThresholds(storedSamples, settings)
         }
     }
 
@@ -832,20 +845,14 @@ class RideTracker(
      * rider's to accept, and silently raising it would rewrite what every later
      * ride's TSS means without them ever asking for it.
      *
-     * Runs after the tail flush so the detector sees the whole stream, and reads
-     * it back from storage rather than from memory — what actually reached disk
-     * is what post-ride analysis will use.
+     * Takes the stream the finish path already read back from storage: what
+     * actually reached disk is what post-ride analysis will use.
      */
     private suspend fun proposeThresholds(
-        rideId: Long,
+        samples: List<RideSample>,
         settings: UserSettings,
     ) {
         if (!settings.autoDetectThresholds) return
-        val samples =
-            when (val result = sampleRepository.getSamples(rideId)) {
-                is Result.Success -> result.data
-                is Result.Error -> return
-            }
         val proposal = thresholdDetector.detect(samples, AthleteThresholds.from(settings))
         if (proposal.ftpWatts == null && proposal.lthrBpm == null) return
         userSettingsRepository.save(
