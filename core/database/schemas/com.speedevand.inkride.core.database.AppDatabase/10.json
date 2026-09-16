@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 10,
-    "identityHash": "96f1e1cbd5520324fa99ac0b4927af5f",
+    "identityHash": "b3f48a483624e67fd60bdf10d83baf4a",
     "entities": [
       {
         "tableName": "user_settings",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `weightKg` INTEGER NOT NULL, `age` INTEGER NOT NULL, `bikeWeightKg` REAL NOT NULL, `bikeType` TEXT NOT NULL, `languageCode` TEXT NOT NULL, `units` TEXT NOT NULL, `showDistance` INTEGER NOT NULL, `showMovingTime` INTEGER NOT NULL, `showAverageSpeed` INTEGER NOT NULL, `showMaxSpeed` INTEGER NOT NULL, `showElevationGain` INTEGER NOT NULL, `showCalories` INTEGER NOT NULL, `showAltitude` INTEGER NOT NULL, `showGrade` INTEGER NOT NULL, `showCompass` INTEGER NOT NULL, `showPower` INTEGER NOT NULL, `keepScreenOn` INTEGER NOT NULL, `pairedHrmAddress` TEXT, `pairedCadenceAddress` TEXT, `pairedPowerAddress` TEXT, `ftpWatts` INTEGER, `lthrBpm` INTEGER, `autoDetectThresholds` INTEGER NOT NULL, `pendingFtpWatts` INTEGER, `pendingLthrBpm` INTEGER, `autoLapMode` TEXT NOT NULL, `autoLapDistanceKm` REAL, `autoLapIntervalMinutes` INTEGER, `maxSpeedAlertKmh` REAL, `hrZoneMinBpm` INTEGER, `hrZoneMaxBpm` INTEGER, `activeBikeProfileId` INTEGER, `hasCompletedOnboarding` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `weightKg` INTEGER NOT NULL, `age` INTEGER NOT NULL, `bikeWeightKg` REAL NOT NULL, `bikeType` TEXT NOT NULL, `languageCode` TEXT NOT NULL, `units` TEXT NOT NULL, `showDistance` INTEGER NOT NULL, `showMovingTime` INTEGER NOT NULL, `showAverageSpeed` INTEGER NOT NULL, `showMaxSpeed` INTEGER NOT NULL, `showElevationGain` INTEGER NOT NULL, `showCalories` INTEGER NOT NULL, `showAltitude` INTEGER NOT NULL, `showGrade` INTEGER NOT NULL, `showCompass` INTEGER NOT NULL, `showPower` INTEGER NOT NULL, `showTrainingMetrics` INTEGER NOT NULL, `keepScreenOn` INTEGER NOT NULL, `pairedHrmAddress` TEXT, `pairedCadenceAddress` TEXT, `pairedPowerAddress` TEXT, `ftpWatts` INTEGER, `lthrBpm` INTEGER, `autoDetectThresholds` INTEGER NOT NULL, `pendingFtpWatts` INTEGER, `pendingLthrBpm` INTEGER, `autoLapMode` TEXT NOT NULL, `autoLapDistanceKm` REAL, `autoLapIntervalMinutes` INTEGER, `maxSpeedAlertKmh` REAL, `hrZoneMinBpm` INTEGER, `hrZoneMaxBpm` INTEGER, `activeBikeProfileId` INTEGER, `hasCompletedOnboarding` INTEGER NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -107,6 +107,12 @@
           {
             "fieldPath": "showPower",
             "columnName": "showPower",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "showTrainingMetrics",
+            "columnName": "showTrainingMetrics",
             "affinity": "INTEGER",
             "notNull": true
           },
@@ -665,7 +671,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '96f1e1cbd5520324fa99ac0b4927af5f')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'b3f48a483624e67fd60bdf10d83baf4a')"
     ]
   }
 }

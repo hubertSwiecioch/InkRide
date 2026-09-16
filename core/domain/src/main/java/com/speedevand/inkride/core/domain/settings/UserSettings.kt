@@ -28,6 +28,7 @@ data class UserSettings(
     val showGrade: Boolean = true,
     val showCompass: Boolean = true,
     val showPower: Boolean = true,
+    val showTrainingMetrics: Boolean = true,
     val keepScreenOn: Boolean = true,
     // MAC addresses of paired BLE sensors; null when none is paired.
     val pairedHrmAddress: String? = null,

@@ -191,6 +191,7 @@ val MIGRATION_9_10 =
                 "`autoLapMode` TEXT NOT NULL DEFAULT 'OFF'",
                 "`autoLapDistanceKm` REAL",
                 "`autoLapIntervalMinutes` INTEGER",
+                "`showTrainingMetrics` INTEGER NOT NULL DEFAULT 1",
             ).forEach { column ->
                 db.execSQL("ALTER TABLE `user_settings` ADD COLUMN $column")
             }

@@ -24,11 +24,13 @@ import com.speedevand.inkride.core.presentation.DesignConstants
 import com.speedevand.inkride.dashboard.presentation.DashboardTestTags
 import com.speedevand.inkride.dashboard.presentation.R
 import com.speedevand.inkride.dashboard.presentation.model.RideMetricsUi
+import com.speedevand.inkride.dashboard.presentation.model.TrainingMetricsUi
 
 enum class DashboardPage {
     PRIMARY,
     SPEED_GRADE,
     SECONDARY,
+    TRAINING,
     COMPASS,
 }
 
@@ -47,6 +49,7 @@ fun visibleDashboardPages(settings: UserSettings): List<DashboardPage> =
                 settings.showCalories || settings.showAltitude ||
                 settings.showPower
         if (hasSecondary) add(DashboardPage.SECONDARY)
+        if (settings.showTrainingMetrics) add(DashboardPage.TRAINING)
         if (settings.showCompass) add(DashboardPage.COMPASS)
     }
 
@@ -74,8 +77,74 @@ fun MetricsPager(
             DashboardPage.PRIMARY -> PrimaryMetricsPage(metrics = metrics, settings = settings)
             DashboardPage.SPEED_GRADE -> SpeedGradeMetricsPage(metrics = metrics, settings = settings)
             DashboardPage.SECONDARY -> SecondaryMetricsPage(metrics = metrics, settings = settings)
+            DashboardPage.TRAINING -> TrainingMetricsPage(training = metrics.training)
             DashboardPage.COMPASS -> Compass(bearing = metrics.bearingDegrees)
             null -> Unit
+        }
+    }
+}
+
+/**
+ * Training load. Every value is a pre-formatted string from [TrainingMetricsUi],
+ * so a metric the ride cannot produce reads "--" rather than a zero that would
+ * claim the rider produced nothing.
+ */
+@Composable
+private fun TrainingMetricsPage(training: TrainingMetricsUi) {
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(DesignConstants.PADDING_LARGE)) {
+            MetricRow {
+                MetricItem(
+                    label = stringResource(R.string.dashboard_metric_normalized_power),
+                    value = training.normalizedPower,
+                    unit = stringResource(R.string.dashboard_unit_watts),
+                    modifier = Modifier.weight(1f),
+                    valueTestTag = DashboardTestTags.METRIC_NORMALIZED_POWER,
+                )
+                MetricItem(
+                    label = stringResource(R.string.dashboard_metric_intensity_factor),
+                    value = training.intensityFactor,
+                    unit = "",
+                    modifier = Modifier.weight(1f),
+                    valueTestTag = DashboardTestTags.METRIC_INTENSITY_FACTOR,
+                )
+            }
+            MetricRow {
+                MetricItem(
+                    label = stringResource(R.string.dashboard_metric_tss),
+                    value = training.trainingStressScore,
+                    unit = "",
+                    modifier = Modifier.weight(1f),
+                    valueTestTag = DashboardTestTags.METRIC_TSS,
+                )
+                MetricItem(
+                    label = stringResource(R.string.dashboard_metric_hr_zone),
+                    value = training.heartRateZone,
+                    unit = "",
+                    modifier = Modifier.weight(1f),
+                    valueTestTag = DashboardTestTags.METRIC_HR_ZONE,
+                )
+            }
+            MetricRow {
+                MetricItem(
+                    label = stringResource(R.string.dashboard_metric_vam),
+                    value = training.vam,
+                    unit = stringResource(R.string.dashboard_unit_vam),
+                    modifier = Modifier.weight(1f),
+                    valueTestTag = DashboardTestTags.METRIC_VAM,
+                )
+                MetricItem(
+                    label = stringResource(R.string.dashboard_metric_work),
+                    value = training.work,
+                    unit = stringResource(R.string.dashboard_unit_kj),
+                    modifier = Modifier.weight(1f),
+                    valueTestTag = DashboardTestTags.METRIC_WORK,
+                )
+            }
         }
     }
 }

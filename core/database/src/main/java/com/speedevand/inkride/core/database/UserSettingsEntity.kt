@@ -22,6 +22,7 @@ data class UserSettingsEntity(
     val showGrade: Boolean,
     val showCompass: Boolean,
     val showPower: Boolean,
+    val showTrainingMetrics: Boolean = true,
     val keepScreenOn: Boolean = true,
     val pairedHrmAddress: String? = null,
     val pairedCadenceAddress: String? = null,
