@@ -18,4 +18,8 @@ data class RideHistoryEntity(
     val averagePowerWatts: Int = 0,
     val bikeWeightKg: Double = 10.0,
     val bikeType: String = "ROAD",
+    // False while a ride is still in progress. The row is inserted at ride
+    // start so a killed process leaves something recoverable behind, and only
+    // finished rides belong in history and lifetime totals.
+    val isComplete: Boolean = true,
 )

@@ -61,6 +61,36 @@ object TestEntities {
             accuracyM = 5f,
         )
 
+    /**
+     * Defaults to a position-less sample — the case that distinguishes
+     * `ride_sample` from `ride_track_point`: a reading taken during a GPS
+     * dropout still carries heart rate, power and cadence.
+     */
+    fun rideSample(
+        rideId: Long,
+        timestampMs: Long,
+        latitude: Double? = null,
+        longitude: Double? = null,
+        speedKmh: Double? = 22.5,
+        powerWatts: Int? = 210,
+        powerSource: String? = "MEASURED",
+        heartRateBpm: Int? = 150,
+        cadenceRpm: Int? = 88,
+    ): RideSampleEntity =
+        RideSampleEntity(
+            rideId = rideId,
+            timestampMs = timestampMs,
+            latitude = latitude,
+            longitude = longitude,
+            altitudeM = if (latitude == null) null else 100.0,
+            speedKmh = speedKmh,
+            gradePercent = if (latitude == null) null else 1.5,
+            powerWatts = powerWatts,
+            powerSource = powerSource,
+            heartRateBpm = heartRateBpm,
+            cadenceRpm = cadenceRpm,
+        )
+
     fun bikeProfile(
         id: Long = 0L,
         name: String = "Road bike",
