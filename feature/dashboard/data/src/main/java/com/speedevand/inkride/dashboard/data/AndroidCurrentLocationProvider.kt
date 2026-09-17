@@ -35,7 +35,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
  * 3. [requestFreshFix] — an actual single-fix GPS request, only reached when
  *    neither shortcut above has anything to offer. API 30+ goes through
  *    `getCurrentLocation()`; older devices keep the deprecated
- *    `requestSingleUpdate` path.
+ *    `requestSingleUpdate` path. Both are held to [timeoutMs].
  */
 class AndroidCurrentLocationProvider(
     private val context: Context,
@@ -98,12 +98,32 @@ class AndroidCurrentLocationProvider(
     private suspend fun requestFreshFixModern(): Result<LocationFix, LocationError> =
         suspendCancellableCoroutine { continuation ->
             val cancellationSignal = CancellationSignal()
-            continuation.invokeOnCancellation { cancellationSignal.cancel() }
+            val handler = Handler(Looper.getMainLooper())
+
+            // getCurrentLocation() enforces a timeout of its own (30 s by
+            // default), which is twice the budget this class documents. Without
+            // an explicit one the rider waits half a minute on a cold chip
+            // before destination search admits it has nothing — so the same
+            // [timeoutMs] the legacy path honours is applied here too, by
+            // cancelling the request rather than racing it.
+            val timeoutRunnable =
+                Runnable {
+                    cancellationSignal.cancel()
+                    if (continuation.isActive) {
+                        continuation.resumeWith(kotlin.Result.success(Result.Error(LocationError.TIMED_OUT)))
+                    }
+                }
+            continuation.invokeOnCancellation {
+                handler.removeCallbacks(timeoutRunnable)
+                cancellationSignal.cancel()
+            }
+
             locationManager.getCurrentLocation(
                 LocationManager.GPS_PROVIDER,
                 cancellationSignal,
                 ContextCompat.getMainExecutor(context),
             ) { location ->
+                handler.removeCallbacks(timeoutRunnable)
                 if (!continuation.isActive) return@getCurrentLocation
                 val result =
                     if (location == null) {
@@ -115,6 +135,7 @@ class AndroidCurrentLocationProvider(
                     }
                 continuation.resumeWith(kotlin.Result.success(result))
             }
+            handler.postDelayed(timeoutRunnable, timeoutMs)
         }
 
     @SuppressLint("MissingPermission")
