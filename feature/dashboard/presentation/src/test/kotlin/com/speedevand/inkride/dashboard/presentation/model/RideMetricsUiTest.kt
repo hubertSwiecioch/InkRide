@@ -3,6 +3,7 @@ package com.speedevand.inkride.dashboard.presentation.model
 import assertk.assertThat
 import assertk.assertions.isEqualTo
 import com.speedevand.inkride.core.domain.settings.MeasurementUnits
+import com.speedevand.inkride.core.domain.tracking.PowerSource
 import com.speedevand.inkride.core.domain.tracking.RideMetrics
 import org.junit.jupiter.api.Test
 
@@ -93,5 +94,39 @@ class RideMetricsUiTest {
         val metrics = RideMetrics(heartRateBpm = null)
         val ui = metrics.toRideMetricsUi()
         assertThat(ui.heartRateZone).isEqualTo(null)
+    }
+
+    @Test
+    fun `estimated power is marked as approximate so a model is not read as a measurement`() {
+        val metrics = RideMetrics(powerWatts = 243, powerSource = PowerSource.ESTIMATED)
+
+        val ui = metrics.toRideMetricsUi(MeasurementUnits.METRIC)
+
+        // PowerEstimator is a +-30-60 % physical model. Rendering its output
+        // identically to a meter's would let a rider train against a number the
+        // app is guessing.
+        assertThat(ui.powerWatts).isEqualTo("~243")
+    }
+
+    @Test
+    fun `measured power carries no marker`() {
+        val metrics = RideMetrics(powerWatts = 243, powerSource = PowerSource.MEASURED)
+
+        val ui = metrics.toRideMetricsUi(MeasurementUnits.METRIC)
+
+        // The marker earns its place by being absent when there is a meter:
+        // that absence is what tells the rider the number is real.
+        assertThat(ui.powerWatts).isEqualTo("243")
+    }
+
+    @Test
+    fun `zero estimated power is not marked`() {
+        val metrics = RideMetrics(powerWatts = 0, powerSource = PowerSource.ESTIMATED)
+
+        val ui = metrics.toRideMetricsUi(MeasurementUnits.METRIC)
+
+        // Nothing is being approximated at a standstill, and "~0" would be
+        // noise on the readout a stopped rider looks at longest.
+        assertThat(ui.powerWatts).isEqualTo("0")
     }
 }

@@ -9,6 +9,7 @@ import assertk.assertions.isEqualTo
 import assertk.assertions.isGreaterThan
 import assertk.assertions.isLessThan
 import assertk.assertions.isNotEqualTo
+import assertk.assertions.isTrue
 import com.speedevand.inkride.core.domain.ble.BleSample
 import com.speedevand.inkride.core.domain.history.RideHistoryRepository
 import com.speedevand.inkride.core.testing.support.textOf
@@ -129,7 +130,12 @@ class RideTrackingHappyPathTest : RideTrackingE2ETestBase() {
         // demands a high wattage here (empirically ~1700W for these
         // parameters). The bound below is a sanity ceiling against a
         // genuinely broken computation, not a realistic-cycling ceiling.
-        val power = composeTestRule.textOf(DashboardTestTags.METRIC_POWER).toInt()
+        // No power meter is paired in this test, so the readout must carry the
+        // approximate marker — that is the whole point of it, and asserting the
+        // number alone would pass whether or not a model output was labelled.
+        val powerText = composeTestRule.textOf(DashboardTestTags.METRIC_POWER)
+        assertThat(powerText.startsWith("~")).isTrue()
+        val power = powerText.removePrefix("~").toInt()
         assertThat(power).isGreaterThan(0)
         assertThat(power).isLessThan(3_000)
 
