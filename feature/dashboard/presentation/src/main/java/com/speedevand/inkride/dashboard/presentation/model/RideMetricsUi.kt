@@ -3,6 +3,7 @@ package com.speedevand.inkride.dashboard.presentation.model
 import com.speedevand.inkride.core.domain.settings.MeasurementUnits
 import com.speedevand.inkride.core.domain.tracking.GpsQuality
 import com.speedevand.inkride.core.domain.tracking.HeartRateZoneCalculator
+import com.speedevand.inkride.core.domain.tracking.PowerSource
 import com.speedevand.inkride.core.domain.tracking.RideMetrics
 import com.speedevand.inkride.core.domain.tracking.WeatherTrend
 import com.speedevand.inkride.core.domain.tracking.training.TrainingMetrics
@@ -43,6 +44,28 @@ data class RideMetricsUi(
     val altitudeUnit: String = "m",
 )
 
+/**
+ * Power, marked as approximate when it came from [PowerEstimator]'s physical
+ * model rather than a paired meter.
+ *
+ * A tilde rather than a longer label or an icon: it is one character, so the
+ * readout neither reflows nor loses width, and it reads as "about" without
+ * needing a legend. The marker earns its place by being absent once a meter is
+ * paired — that absence is what tells the rider the number is real.
+ *
+ * Nothing is being approximated at a standstill, so zero is left unmarked; a
+ * stopped rider stares at that readout longer than any other.
+ */
+private fun formatPower(
+    watts: Int,
+    source: PowerSource,
+): String =
+    if (source == PowerSource.ESTIMATED && watts > 0) {
+        "~$watts"
+    } else {
+        watts.toString()
+    }
+
 fun RideMetrics.toRideMetricsUi(
     units: MeasurementUnits = MeasurementUnits.METRIC,
     age: Int = 30,
@@ -63,7 +86,7 @@ fun RideMetrics.toRideMetricsUi(
         elevationGainM = (elevationGainM * altitudeFactor).format(0),
         gradePercent = gradePercent.format(1),
         caloriesKcal = caloriesKcal.format(0),
-        powerWatts = powerWatts.toString(),
+        powerWatts = formatPower(powerWatts, powerSource),
         training = TrainingMetricsUi.from(training, units),
         gpsAccuracyM = formatGpsQuality(gpsQuality, gpsAccuracyM?.toDouble(), altitudeFactor),
         bearingDegrees = bearingDegrees,
