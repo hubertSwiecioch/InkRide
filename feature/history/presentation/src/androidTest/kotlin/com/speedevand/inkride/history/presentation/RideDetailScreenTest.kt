@@ -53,7 +53,9 @@ class RideDetailScreenTest : HistoryTestHarness() {
         assertThat(detailText(RideDetailTestTags.MAX_SPEED)).isEqualTo("45.5 km/h")
         assertThat(detailText(RideDetailTestTags.ELEVATION_GAIN)).isEqualTo("320 m")
         assertThat(detailText(RideDetailTestTags.CALORIES)).isEqualTo("780 kcal")
-        assertThat(detailText(RideDetailTestTags.AVG_POWER)).isEqualTo("165 W")
+        // The fixture records no power source, so the readout must say the
+        // number is approximate rather than pass a model output off as a meter's.
+        assertThat(detailText(RideDetailTestTags.AVG_POWER)).isEqualTo("~165 W")
         assertThat(detailText(RideDetailTestTags.MOVING_TIME)).isEqualTo("00:50:00")
         assertThat(detailText(RideDetailTestTags.ELAPSED_TIME)).isEqualTo("01:00:00")
     }

@@ -570,7 +570,7 @@ private fun RideDetailScreenPreview() {
                             maxSpeedKmh = "51.3 km/h",
                             elevationGainM = "312 m",
                             caloriesKcal = "640 kcal",
-                            averagePowerWatts = "185 W",
+                            averagePowerWatts = "~185 W",
                         ),
                 ),
         ) { }
