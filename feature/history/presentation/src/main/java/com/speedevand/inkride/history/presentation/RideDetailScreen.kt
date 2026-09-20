@@ -364,6 +364,74 @@ fun RideDetailScreen(
                     }
                 }
 
+                state.thresholdProposal?.let { proposal ->
+                    RideDetailSection(
+                        title = stringResource(R.string.ride_detail_section_threshold_proposal),
+                        modifier = Modifier.testTag(RideDetailTestTags.THRESHOLD_PROPOSAL),
+                    ) {
+                        TextMMD(
+                            text =
+                                proposal.ftpWatts?.let { stringResource(R.string.ride_detail_proposed_ftp, it) }
+                                    ?: stringResource(R.string.ride_detail_proposed_lthr, proposal.lthrBpm ?: 0),
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ButtonMMD(
+                                onClick = { onAction(RideDetailAction.OnAcceptThresholdProposal) },
+                                modifier = Modifier.weight(1f).testTag(RideDetailTestTags.THRESHOLD_ACCEPT),
+                            ) {
+                                TextMMD(text = stringResource(R.string.ride_detail_proposal_accept))
+                            }
+                            OutlinedButtonMMD(
+                                onClick = { onAction(RideDetailAction.OnRejectThresholdProposal) },
+                                modifier = Modifier.weight(1f).testTag(RideDetailTestTags.THRESHOLD_REJECT),
+                            ) {
+                                TextMMD(text = stringResource(R.string.ride_detail_proposal_reject))
+                            }
+                        }
+                    }
+                }
+
+                // Hidden outright for rides that predate the feature: a wall of
+                // dashes would read as a broken screen rather than an honest
+                // "this ride has none of it".
+                if (state.training.hasAnyTrainingData) {
+                    RideDetailSection(
+                        title = stringResource(R.string.ride_detail_section_training),
+                        modifier = Modifier.testTag(RideDetailTestTags.TRAINING_SECTION),
+                    ) {
+                        DetailRow(RideDetailTestTags.TSS, stringResource(R.string.ride_detail_tss), state.training.trainingStressScore)
+                        DetailRow(
+                            RideDetailTestTags.IF,
+                            stringResource(R.string.ride_detail_intensity_factor),
+                            state.training.intensityFactor,
+                        )
+                        DetailRow(
+                            RideDetailTestTags.NP,
+                            stringResource(R.string.ride_detail_normalized_power),
+                            state.training.normalizedPower,
+                        )
+                        DetailRow(RideDetailTestTags.HR_TSS, stringResource(R.string.ride_detail_hr_tss), state.training.hrTss)
+                        DetailRow(RideDetailTestTags.DECOUPLING, stringResource(R.string.ride_detail_decoupling), state.training.decoupling)
+
+                        if (state.training.secondsInHrZone.isNotEmpty()) {
+                            TextMMD(text = stringResource(R.string.ride_detail_hr_zones))
+                            ZoneBars(
+                                secondsInZone = state.training.secondsInHrZone,
+                                zoneCount = 5,
+                                modifier = Modifier.testTag(RideDetailTestTags.HR_ZONE_BARS),
+                            )
+                        }
+                        if (state.training.secondsInPowerZone.isNotEmpty()) {
+                            TextMMD(text = stringResource(R.string.ride_detail_power_zones))
+                            ZoneBars(
+                                secondsInZone = state.training.secondsInPowerZone,
+                                zoneCount = 7,
+                                modifier = Modifier.testTag(RideDetailTestTags.POWER_ZONE_BARS),
+                            )
+                        }
+                    }
+                }
+
                 if (state.laps.isNotEmpty()) {
                     RideDetailSection(
                         title = stringResource(R.string.ride_detail_section_laps),

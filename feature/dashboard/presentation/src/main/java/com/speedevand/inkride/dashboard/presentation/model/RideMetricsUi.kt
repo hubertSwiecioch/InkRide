@@ -5,6 +5,7 @@ import com.speedevand.inkride.core.domain.tracking.GpsQuality
 import com.speedevand.inkride.core.domain.tracking.HeartRateZoneCalculator
 import com.speedevand.inkride.core.domain.tracking.RideMetrics
 import com.speedevand.inkride.core.domain.tracking.WeatherTrend
+import com.speedevand.inkride.core.domain.tracking.training.TrainingMetrics
 import com.speedevand.inkride.core.toClockString
 import com.speedevand.inkride.dashboard.presentation.DashboardConstants.DISTANCE_ZERO
 import com.speedevand.inkride.dashboard.presentation.DashboardConstants.KM_TO_MI_FACTOR
@@ -26,6 +27,7 @@ data class RideMetricsUi(
     val gradePercent: String = "0.0",
     val caloriesKcal: String = "0",
     val powerWatts: String = "0",
+    val training: TrainingMetricsUi = TrainingMetricsUi(),
     val gpsAccuracyM: String = "--",
     val bearingDegrees: Float? = null,
     // Null when no BLE sensor of that kind is connected.
@@ -44,6 +46,7 @@ data class RideMetricsUi(
 fun RideMetrics.toRideMetricsUi(
     units: MeasurementUnits = MeasurementUnits.METRIC,
     age: Int = 30,
+    training: TrainingMetrics = TrainingMetrics(),
 ): RideMetricsUi {
     val speedFactor = if (units == MeasurementUnits.IMPERIAL) KM_TO_MI_FACTOR else 1.0
     val distanceFactor = if (units == MeasurementUnits.IMPERIAL) KM_TO_MI_FACTOR else 1.0
@@ -61,6 +64,7 @@ fun RideMetrics.toRideMetricsUi(
         gradePercent = gradePercent.format(1),
         caloriesKcal = caloriesKcal.format(0),
         powerWatts = powerWatts.toString(),
+        training = TrainingMetricsUi.from(training, units),
         gpsAccuracyM = formatGpsQuality(gpsQuality, gpsAccuracyM?.toDouble(), altitudeFactor),
         bearingDegrees = bearingDegrees,
         heartRateBpm = heartRateBpm?.toString(),

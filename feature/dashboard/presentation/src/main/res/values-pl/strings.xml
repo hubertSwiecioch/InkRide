@@ -90,4 +90,13 @@
     <string name="dashboard_route_error_malformed">To nie jest prawidłowy plik GPX.</string>
     <string name="dashboard_route_clear_title">Wyczyścić trasę?</string>
     <string name="dashboard_route_clear_message">Przestaniesz podążać tą trasą. Możesz wczytać ją ponownie później.</string>
+    <string name="dashboard_metric_normalized_power">NP</string>
+    <string name="dashboard_metric_intensity_factor">IF</string>
+    <string name="dashboard_metric_tss">TSS</string>
+    <string name="dashboard_metric_hr_zone">Strefa HR</string>
+    <string name="dashboard_metric_vam">VAM</string>
+    <string name="dashboard_metric_work">Praca</string>
+    <string name="dashboard_unit_watts">W</string>
+    <string name="dashboard_unit_vam">m/h</string>
+    <string name="dashboard_unit_kj">kJ</string>
 </resources>

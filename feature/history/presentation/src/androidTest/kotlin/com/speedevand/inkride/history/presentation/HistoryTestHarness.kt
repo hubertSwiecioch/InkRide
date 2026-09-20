@@ -6,12 +6,14 @@ import com.speedevand.inkride.core.domain.history.LifetimeStatsRepository
 import com.speedevand.inkride.core.domain.history.RideHistoryRepository
 import com.speedevand.inkride.core.domain.history.RideLapRepository
 import com.speedevand.inkride.core.domain.history.RideRecord
+import com.speedevand.inkride.core.domain.history.RideSampleRepository
 import com.speedevand.inkride.core.domain.history.RideTrackPointRepository
 import com.speedevand.inkride.core.domain.settings.UserSettings
 import com.speedevand.inkride.core.domain.settings.UserSettingsRepository
 import com.speedevand.inkride.core.testing.fakes.FakeLifetimeStatsRepository
 import com.speedevand.inkride.core.testing.fakes.FakeRideHistoryRepository
 import com.speedevand.inkride.core.testing.fakes.FakeRideLapRepository
+import com.speedevand.inkride.core.testing.fakes.FakeRideSampleRepository
 import com.speedevand.inkride.core.testing.fakes.FakeRideTrackPointRepository
 import com.speedevand.inkride.core.testing.fakes.FakeUserSettingsRepository
 import com.speedevand.inkride.core.testing.rules.KoinTestRule
@@ -33,6 +35,7 @@ abstract class HistoryTestHarness {
     val settingsRepository by lazy { FakeUserSettingsRepository(initialSettings()) }
     val lapRepository by lazy { FakeRideLapRepository() }
     val trackPointRepository by lazy { FakeRideTrackPointRepository() }
+    val sampleRepository by lazy { FakeRideSampleRepository() }
 
     // The lap and track-point fakes are handed to the history fake so that
     // deleting a ride clears them too, reproducing the `onDelete = CASCADE` that
@@ -44,6 +47,7 @@ abstract class HistoryTestHarness {
             initial = initialRides(),
             lapRepository = lapRepository,
             trackPointRepository = trackPointRepository,
+            sampleRepository = sampleRepository,
         )
     }
     val lifetimeStatsRepository by lazy { FakeLifetimeStatsRepository() }
@@ -60,6 +64,7 @@ abstract class HistoryTestHarness {
                         single<RideHistoryRepository> { historyRepository }
                         single<RideLapRepository> { lapRepository }
                         single<RideTrackPointRepository> { trackPointRepository }
+                        single<RideSampleRepository> { sampleRepository }
                         single<LifetimeStatsRepository> { lifetimeStatsRepository }
                         single<GpxExporter> { gpxExporter }
                     },

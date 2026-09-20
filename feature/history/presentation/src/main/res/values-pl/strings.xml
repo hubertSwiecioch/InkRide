@@ -61,4 +61,17 @@
     <string name="lifetime_stats_total_elevation">Łączne przewyższenie</string>
     <string name="lifetime_stats_max_speed">Maks. prędkość</string>
     <string name="lifetime_stats_total_calories">Łączne kalorie</string>
+    <string name="ride_detail_section_training">Trening</string>
+    <string name="ride_detail_tss">TSS</string>
+    <string name="ride_detail_intensity_factor">Współczynnik intensywności</string>
+    <string name="ride_detail_normalized_power">Moc znormalizowana</string>
+    <string name="ride_detail_hr_tss">hrTSS</string>
+    <string name="ride_detail_decoupling">Rozbieżność</string>
+    <string name="ride_detail_hr_zones">Strefy tętna</string>
+    <string name="ride_detail_power_zones">Strefy mocy</string>
+    <string name="ride_detail_section_threshold_proposal">Nowy próg?</string>
+    <string name="ride_detail_proposed_ftp">Ta jazda sugeruje FTP %1$d W.</string>
+    <string name="ride_detail_proposed_lthr">Ta jazda sugeruje progowe tętno %1$d ud/min.</string>
+    <string name="ride_detail_proposal_accept">Użyj</string>
+    <string name="ride_detail_proposal_reject">Zostaw moje</string>
 </resources>

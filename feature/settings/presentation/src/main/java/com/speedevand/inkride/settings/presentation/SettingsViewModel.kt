@@ -6,9 +6,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.speedevand.inkride.core.domain.onFailure
 import com.speedevand.inkride.core.domain.onSuccess
+import com.speedevand.inkride.core.domain.settings.AutoLapMode
 import com.speedevand.inkride.core.domain.settings.MeasurementUnits
 import com.speedevand.inkride.core.domain.settings.UserSettings
 import com.speedevand.inkride.core.domain.settings.UserSettingsRepository
+import com.speedevand.inkride.core.domain.tracking.training.AthleteThresholds
 import com.speedevand.inkride.core.presentation.UiText
 import com.speedevand.inkride.core.presentation.toUiText
 import com.speedevand.inkride.settings.presentation.SettingsConstants.AGE_MAX
@@ -16,11 +18,15 @@ import com.speedevand.inkride.settings.presentation.SettingsConstants.AGE_MIN
 import com.speedevand.inkride.settings.presentation.SettingsConstants.ALERT_HR_DEFAULT_MAX_BPM
 import com.speedevand.inkride.settings.presentation.SettingsConstants.ALERT_HR_DEFAULT_MIN_BPM
 import com.speedevand.inkride.settings.presentation.SettingsConstants.ALERT_SPEED_DEFAULT_KMH
+import com.speedevand.inkride.settings.presentation.SettingsConstants.AUTO_LAP_DEFAULT_DISTANCE_KM
+import com.speedevand.inkride.settings.presentation.SettingsConstants.AUTO_LAP_DEFAULT_MINUTES
 import com.speedevand.inkride.settings.presentation.SettingsConstants.BIKE_WEIGHT_MAX_KG
 import com.speedevand.inkride.settings.presentation.SettingsConstants.BIKE_WEIGHT_MAX_LBS
 import com.speedevand.inkride.settings.presentation.SettingsConstants.BIKE_WEIGHT_MIN_KG
 import com.speedevand.inkride.settings.presentation.SettingsConstants.BIKE_WEIGHT_MIN_LBS
+import com.speedevand.inkride.settings.presentation.SettingsConstants.FTP_DEFAULT_WATTS
 import com.speedevand.inkride.settings.presentation.SettingsConstants.KMH_TO_MPH_FACTOR
+import com.speedevand.inkride.settings.presentation.SettingsConstants.LTHR_DEFAULT_BPM
 import com.speedevand.inkride.settings.presentation.SettingsConstants.WEIGHT_FACTOR_LBS
 import com.speedevand.inkride.settings.presentation.SettingsConstants.WEIGHT_MAX_KG
 import com.speedevand.inkride.settings.presentation.SettingsConstants.WEIGHT_MAX_LBS
@@ -290,6 +296,113 @@ class SettingsViewModel(
                 if (bpm != null) {
                     val current = _state.value.userSettings
                     saveSettings(current.copy(alerts = current.alerts.copy(hrZoneMaxBpm = bpm)))
+                }
+            }
+
+            is SettingsAction.OnFtpChange -> {
+                val filtered = action.value.filter { it.isDigit() }
+                _state.update {
+                    it.copy(userSettingsUi = it.userSettingsUi.copy(ftpWatts = filtered))
+                }
+                filtered.toIntOrNull()?.let { watts ->
+                    saveSettings(_state.value.userSettings.copy(ftpWatts = watts))
+                }
+            }
+
+            is SettingsAction.OnFtpToggle -> {
+                val current = _state.value.userSettings
+                if (action.enabled) {
+                    val kept = _state.value.userSettingsUi.ftpWatts
+                    val watts = kept.toIntOrNull() ?: FTP_DEFAULT_WATTS
+                    _state.update { it.copy(userSettingsUi = it.userSettingsUi.copy(ftpWatts = watts.toString())) }
+                    saveSettings(current.copy(ftpWatts = watts))
+                } else {
+                    // Clearing FTP is not a reset to some default: without it, IF
+                    // and TSS go back to being unavailable rather than guessed.
+                    _state.update { it.copy(userSettingsUi = it.userSettingsUi.copy(ftpWatts = "")) }
+                    saveSettings(current.copy(ftpWatts = null))
+                }
+            }
+
+            is SettingsAction.OnLthrChange -> {
+                val filtered = action.value.filter { it.isDigit() }
+                _state.update {
+                    it.copy(userSettingsUi = it.userSettingsUi.copy(lthrBpm = filtered))
+                }
+                filtered.toIntOrNull()?.let { bpm ->
+                    saveSettings(_state.value.userSettings.copy(lthrBpm = bpm))
+                }
+            }
+
+            is SettingsAction.OnLthrToggle -> {
+                val current = _state.value.userSettings
+                if (action.enabled) {
+                    val kept = _state.value.userSettingsUi.lthrBpm
+                    // Seed from the same age-predicted fallback the calculator
+                    // would have used, so turning the row on changes nothing yet.
+                    val bpm = kept.toIntOrNull() ?: AthleteThresholds.from(current).lthrBpm ?: LTHR_DEFAULT_BPM
+                    _state.update { it.copy(userSettingsUi = it.userSettingsUi.copy(lthrBpm = bpm.toString())) }
+                    saveSettings(current.copy(lthrBpm = bpm))
+                } else {
+                    _state.update { it.copy(userSettingsUi = it.userSettingsUi.copy(lthrBpm = "")) }
+                    saveSettings(current.copy(lthrBpm = null))
+                }
+            }
+
+            is SettingsAction.OnAutoDetectThresholdsToggle -> {
+                _state.update {
+                    it.copy(userSettingsUi = it.userSettingsUi.copy(autoDetectThresholds = action.enabled))
+                }
+                saveSettings(_state.value.userSettings.copy(autoDetectThresholds = action.enabled))
+            }
+
+            is SettingsAction.OnAutoLapModeChange -> {
+                val current = _state.value.userSettings
+                _state.update { it.copy(userSettingsUi = it.userSettingsUi.copy(autoLapMode = action.mode)) }
+                // Seed the value for the mode being switched into, so turning it
+                // on does something rather than silently staying inert.
+                val config =
+                    when (action.mode) {
+                        AutoLapMode.OFF -> {
+                            current.autoLap.copy(mode = AutoLapMode.OFF)
+                        }
+
+                        AutoLapMode.DISTANCE -> {
+                            current.autoLap.copy(
+                                mode = AutoLapMode.DISTANCE,
+                                distanceKm = current.autoLap.distanceKm ?: AUTO_LAP_DEFAULT_DISTANCE_KM,
+                            )
+                        }
+
+                        AutoLapMode.TIME -> {
+                            current.autoLap.copy(
+                                mode = AutoLapMode.TIME,
+                                intervalMinutes = current.autoLap.intervalMinutes ?: AUTO_LAP_DEFAULT_MINUTES,
+                            )
+                        }
+                    }
+                saveSettings(current.copy(autoLap = config))
+            }
+
+            is SettingsAction.OnAutoLapDistanceChange -> {
+                val filtered = action.value.filter { it.isDigit() || it == '.' }
+                _state.update {
+                    it.copy(userSettingsUi = it.userSettingsUi.copy(autoLapDistanceKm = filtered))
+                }
+                filtered.toDoubleOrNull()?.takeIf { it > 0.0 }?.let { km ->
+                    val current = _state.value.userSettings
+                    saveSettings(current.copy(autoLap = current.autoLap.copy(distanceKm = km)))
+                }
+            }
+
+            is SettingsAction.OnAutoLapIntervalChange -> {
+                val filtered = action.value.filter { it.isDigit() }
+                _state.update {
+                    it.copy(userSettingsUi = it.userSettingsUi.copy(autoLapIntervalMinutes = filtered))
+                }
+                filtered.toIntOrNull()?.takeIf { it > 0 }?.let { minutes ->
+                    val current = _state.value.userSettings
+                    saveSettings(current.copy(autoLap = current.autoLap.copy(intervalMinutes = minutes)))
                 }
             }
 

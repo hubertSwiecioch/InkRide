@@ -1,5 +1,6 @@
 package com.speedevand.inkride.settings.presentation
 
+import com.speedevand.inkride.core.domain.settings.AutoLapMode
 import com.speedevand.inkride.core.domain.settings.UserSettings
 import com.speedevand.inkride.core.presentation.UiText
 
@@ -50,6 +51,38 @@ sealed interface SettingsAction {
 
     data class OnHrMaxAlertToggle(
         val enabled: Boolean,
+    ) : SettingsAction
+
+    data class OnFtpChange(
+        val value: String,
+    ) : SettingsAction
+
+    data class OnFtpToggle(
+        val enabled: Boolean,
+    ) : SettingsAction
+
+    data class OnLthrChange(
+        val value: String,
+    ) : SettingsAction
+
+    data class OnLthrToggle(
+        val enabled: Boolean,
+    ) : SettingsAction
+
+    data class OnAutoDetectThresholdsToggle(
+        val enabled: Boolean,
+    ) : SettingsAction
+
+    data class OnAutoLapModeChange(
+        val mode: AutoLapMode,
+    ) : SettingsAction
+
+    data class OnAutoLapDistanceChange(
+        val value: String,
+    ) : SettingsAction
+
+    data class OnAutoLapIntervalChange(
+        val value: String,
     ) : SettingsAction
 
     data object OnBackClick : SettingsAction

@@ -10,11 +10,15 @@ import assertk.assertions.isNull
 import com.speedevand.inkride.core.domain.DataError
 import com.speedevand.inkride.core.domain.Result
 import com.speedevand.inkride.core.domain.history.RideRecord
+import com.speedevand.inkride.core.domain.history.RideSample
 import com.speedevand.inkride.core.domain.history.RideTrackPoint
 import com.speedevand.inkride.core.testing.fakes.FakeRideHistoryRepository
 import com.speedevand.inkride.core.testing.fakes.FakeRideLapRepository
+import com.speedevand.inkride.core.testing.fakes.FakeRideSampleRepository
 import com.speedevand.inkride.core.testing.fakes.FakeRideTrackPointRepository
 import com.speedevand.inkride.core.testing.fakes.FakeUserSettingsRepository
+import com.speedevand.inkride.core.testing.support.TestRides
+import com.speedevand.inkride.core.testing.support.TestSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -31,6 +35,7 @@ class RideDetailViewModelTest {
     private val rideRepo = FakeRideHistoryRepository()
     private val lapRepo = FakeRideLapRepository()
     private val trackPointRepo = FakeRideTrackPointRepository()
+    private val sampleRepo = FakeRideSampleRepository()
     private val settingsRepo = FakeUserSettingsRepository()
     private val gpxExporter = FakeGpxExporter()
 
@@ -62,7 +67,7 @@ class RideDetailViewModelTest {
     fun `load by ID success populates state`() =
         runTest {
             rideRepo.emitRides(listOf(sampleRide))
-            val viewModel = RideDetailViewModel(1L, rideRepo, lapRepo, trackPointRepo, settingsRepo, gpxExporter)
+            val viewModel = RideDetailViewModel(1L, rideRepo, lapRepo, trackPointRepo, sampleRepo, settingsRepo, gpxExporter)
 
             assertThat(viewModel.state.value.ride).isNotNull()
             assertThat(viewModel.state.value.isLoading).isEqualTo(false)
@@ -72,7 +77,7 @@ class RideDetailViewModelTest {
     fun `load by ID failure shows error`() =
         runTest {
             rideRepo.getByIdResult = Result.Error(DataError.Local.NOT_FOUND)
-            val viewModel = RideDetailViewModel(99L, rideRepo, lapRepo, trackPointRepo, settingsRepo, gpxExporter)
+            val viewModel = RideDetailViewModel(99L, rideRepo, lapRepo, trackPointRepo, sampleRepo, settingsRepo, gpxExporter)
 
             assertThat(viewModel.state.value.isLoading).isEqualTo(false)
             assertThat(viewModel.state.value.ride).isEqualTo(null)
@@ -82,7 +87,7 @@ class RideDetailViewModelTest {
     fun `back click navigates back`() =
         runTest {
             rideRepo.emitRides(listOf(sampleRide))
-            val viewModel = RideDetailViewModel(1L, rideRepo, lapRepo, trackPointRepo, settingsRepo, gpxExporter)
+            val viewModel = RideDetailViewModel(1L, rideRepo, lapRepo, trackPointRepo, sampleRepo, settingsRepo, gpxExporter)
 
             viewModel.events.test {
                 viewModel.onAction(RideDetailAction.OnBackClick)
@@ -95,7 +100,7 @@ class RideDetailViewModelTest {
     fun `delete click deletes and navigates back`() =
         runTest {
             rideRepo.emitRides(listOf(sampleRide))
-            val viewModel = RideDetailViewModel(1L, rideRepo, lapRepo, trackPointRepo, settingsRepo, gpxExporter)
+            val viewModel = RideDetailViewModel(1L, rideRepo, lapRepo, trackPointRepo, sampleRepo, settingsRepo, gpxExporter)
 
             viewModel.events.test {
                 viewModel.onAction(RideDetailAction.OnDeleteClick)
@@ -109,7 +114,7 @@ class RideDetailViewModelTest {
         runTest {
             rideRepo.emitRides(listOf(sampleRide))
             gpxExporter.result = Result.Error(GpxExportError.NO_TRACK)
-            val viewModel = RideDetailViewModel(1L, rideRepo, lapRepo, trackPointRepo, settingsRepo, gpxExporter)
+            val viewModel = RideDetailViewModel(1L, rideRepo, lapRepo, trackPointRepo, sampleRepo, settingsRepo, gpxExporter)
 
             viewModel.events.test {
                 viewModel.onAction(RideDetailAction.OnExportGpxClick)
@@ -129,7 +134,7 @@ class RideDetailViewModelTest {
                     RideTrackPoint(timestampMs = 1000L, latitude = 52.2, longitude = 21.1),
                 ),
             )
-            val viewModel = RideDetailViewModel(1L, rideRepo, lapRepo, trackPointRepo, settingsRepo, gpxExporter)
+            val viewModel = RideDetailViewModel(1L, rideRepo, lapRepo, trackPointRepo, sampleRepo, settingsRepo, gpxExporter)
 
             assertThat(viewModel.state.value.trackPoints).isEqualTo(
                 listOf(TrackPointUi(52.1, 21.0), TrackPointUi(52.2, 21.1)),
@@ -147,7 +152,7 @@ class RideDetailViewModelTest {
                     RideTrackPoint(timestampMs = 1000L, latitude = 52.01, longitude = 21.0, altitudeM = 150.0),
                 ),
             )
-            val viewModel = RideDetailViewModel(1L, rideRepo, lapRepo, trackPointRepo, settingsRepo, gpxExporter)
+            val viewModel = RideDetailViewModel(1L, rideRepo, lapRepo, trackPointRepo, sampleRepo, settingsRepo, gpxExporter)
 
             assertThat(viewModel.state.value.elevationChart).isNotNull()
         }
@@ -163,7 +168,7 @@ class RideDetailViewModelTest {
                     RideTrackPoint(timestampMs = 1000L, latitude = 52.01, longitude = 21.0),
                 ),
             )
-            val viewModel = RideDetailViewModel(1L, rideRepo, lapRepo, trackPointRepo, settingsRepo, gpxExporter)
+            val viewModel = RideDetailViewModel(1L, rideRepo, lapRepo, trackPointRepo, sampleRepo, settingsRepo, gpxExporter)
 
             assertThat(viewModel.state.value.trackPoints).isEqualTo(
                 listOf(TrackPointUi(52.0, 21.0), TrackPointUi(52.01, 21.0)),
@@ -176,4 +181,83 @@ class RideDetailViewModelTest {
 
         override suspend fun export(rideId: Long): Result<Uri, GpxExportError> = result
     }
+
+    @Test
+    fun `a ride recorded before training metrics existed shows them as unavailable`() =
+        runTest {
+            rideRepo.getByIdResult =
+                Result.Success(
+                    TestRides.record(id = 1L).copy(trainingStressScore = null, normalizedPowerWatts = null),
+                )
+
+            val viewModel = RideDetailViewModel(1L, rideRepo, lapRepo, trackPointRepo, sampleRepo, settingsRepo, gpxExporter)
+
+            // Nothing to backfill: the stream was never recorded. Absent, not zero.
+            assertThat(viewModel.state.value.training.trainingStressScore).isEqualTo("--")
+            assertThat(viewModel.state.value.training.hasAnyTrainingData).isEqualTo(false)
+        }
+
+    @Test
+    fun `zone durations are read back from the sample stream`() =
+        runTest {
+            rideRepo.getByIdResult = Result.Success(TestRides.record(id = 1L).copy(lthrAtRideBpm = 160))
+            sampleRepo.setSamples(
+                rideId = 1L,
+                samples = (0 until 600).map { RideSample(timestampMs = it * 1000L, heartRateBpm = 120) },
+            )
+
+            val viewModel = RideDetailViewModel(1L, rideRepo, lapRepo, trackPointRepo, sampleRepo, settingsRepo, gpxExporter)
+
+            // HRmax(Tanaka, 30) = 187, so 120 bpm is 64 % -> zone 2.
+            assertThat(viewModel.state.value.training.secondsInHrZone[2]).isEqualTo(600L)
+            assertThat(viewModel.state.value.training.hasAnyTrainingData).isEqualTo(true)
+        }
+
+    @Test
+    fun `zones are measured against the ride's own thresholds, not today's`() =
+        runTest {
+            // The ride was ridden at FTP 200; the rider has since raised it to 400.
+            rideRepo.getByIdResult = Result.Success(TestRides.record(id = 1L).copy(ftpAtRideWatts = 200))
+            settingsRepo.emitSettings(TestSettings.default().copy(ftpWatts = 400))
+            sampleRepo.setSamples(
+                rideId = 1L,
+                samples = (0 until 300).map { RideSample(timestampMs = it * 1000L, powerWatts = 200) },
+            )
+
+            val viewModel = RideDetailViewModel(1L, rideRepo, lapRepo, trackPointRepo, sampleRepo, settingsRepo, gpxExporter)
+
+            // 200 W against the ride's own 200 W FTP is zone 4. Against today's
+            // 400 it would be zone 1, which would rewrite history.
+            assertThat(viewModel.state.value.training.secondsInPowerZone[4]).isEqualTo(300L)
+        }
+
+    @Test
+    fun `accepting a proposed threshold applies it and clears the candidate`() =
+        runTest {
+            rideRepo.getByIdResult = Result.Success(TestRides.record(id = 1L))
+            settingsRepo.emitSettings(TestSettings.default().copy(ftpWatts = 200, pendingFtpWatts = 260))
+            val viewModel = RideDetailViewModel(1L, rideRepo, lapRepo, trackPointRepo, sampleRepo, settingsRepo, gpxExporter)
+            assertThat(
+                viewModel.state.value.thresholdProposal
+                    ?.ftpWatts,
+            ).isEqualTo(260)
+
+            viewModel.onAction(RideDetailAction.OnAcceptThresholdProposal)
+
+            assertThat(settingsRepo.lastSaved?.ftpWatts).isEqualTo(260)
+            assertThat(settingsRepo.lastSaved?.pendingFtpWatts).isEqualTo(null)
+        }
+
+    @Test
+    fun `rejecting a proposed threshold leaves the standing one untouched`() =
+        runTest {
+            rideRepo.getByIdResult = Result.Success(TestRides.record(id = 1L))
+            settingsRepo.emitSettings(TestSettings.default().copy(ftpWatts = 200, pendingFtpWatts = 260))
+            val viewModel = RideDetailViewModel(1L, rideRepo, lapRepo, trackPointRepo, sampleRepo, settingsRepo, gpxExporter)
+
+            viewModel.onAction(RideDetailAction.OnRejectThresholdProposal)
+
+            assertThat(settingsRepo.lastSaved?.ftpWatts).isEqualTo(200)
+            assertThat(settingsRepo.lastSaved?.pendingFtpWatts).isEqualTo(null)
+        }
 }

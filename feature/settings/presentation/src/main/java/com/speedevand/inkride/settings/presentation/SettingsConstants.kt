@@ -28,5 +28,22 @@ object SettingsConstants {
     const val ALERT_HR_MAX_BPM = 220
     const val ALERT_HR_DEFAULT_MIN_BPM = 60
     const val ALERT_HR_DEFAULT_MAX_BPM = 180
+
+    // Seed shown when the rider first enables the FTP row. Deliberately a
+    // starting point to edit, not a value the app claims to know: FTP is never
+    // applied to training load until the rider has set it themselves.
+    const val FTP_DEFAULT_WATTS = 200
+    const val FTP_MIN_WATTS = 50
+    const val FTP_MAX_WATTS = 600
+    const val LTHR_DEFAULT_BPM = 160
+    const val LTHR_MIN_BPM = 100
+    const val LTHR_MAX_BPM = 220
+
+    const val AUTO_LAP_DEFAULT_DISTANCE_KM = 5.0
+    const val AUTO_LAP_MIN_DISTANCE_KM = 1.0
+    const val AUTO_LAP_MAX_DISTANCE_KM = 50.0
+    const val AUTO_LAP_DEFAULT_MINUTES = 10
+    const val AUTO_LAP_MIN_MINUTES = 1
+    const val AUTO_LAP_MAX_MINUTES = 120
     const val ALERT_HR_STEP = 5.0
 }

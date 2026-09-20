@@ -61,4 +61,17 @@
     <string name="lifetime_stats_total_elevation">Total elevation gain</string>
     <string name="lifetime_stats_max_speed">Top speed</string>
     <string name="lifetime_stats_total_calories">Total calories</string>
+    <string name="ride_detail_section_training">Training</string>
+    <string name="ride_detail_tss">TSS</string>
+    <string name="ride_detail_intensity_factor">Intensity factor</string>
+    <string name="ride_detail_normalized_power">Normalized power</string>
+    <string name="ride_detail_hr_tss">hrTSS</string>
+    <string name="ride_detail_decoupling">Decoupling</string>
+    <string name="ride_detail_hr_zones">Heart-rate zones</string>
+    <string name="ride_detail_power_zones">Power zones</string>
+    <string name="ride_detail_section_threshold_proposal">New threshold?</string>
+    <string name="ride_detail_proposed_ftp">This ride suggests an FTP of %1$d W.</string>
+    <string name="ride_detail_proposed_lthr">This ride suggests a threshold heart rate of %1$d bpm.</string>
+    <string name="ride_detail_proposal_accept">Use it</string>
+    <string name="ride_detail_proposal_reject">Keep mine</string>
 </resources>

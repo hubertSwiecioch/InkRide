@@ -34,4 +34,10 @@ object DashboardTestTags {
     const val METRIC_CALORIES = "dashboard_metric_value_calories"
     const val METRIC_ALTITUDE = "dashboard_metric_value_altitude"
     const val METRIC_POWER = "dashboard_metric_value_power"
+    const val METRIC_NORMALIZED_POWER = "dashboard_metric_value_np"
+    const val METRIC_INTENSITY_FACTOR = "dashboard_metric_value_if"
+    const val METRIC_TSS = "dashboard_metric_value_tss"
+    const val METRIC_VAM = "dashboard_metric_value_vam"
+    const val METRIC_WORK = "dashboard_metric_value_work"
+    const val METRIC_HR_ZONE = "dashboard_metric_value_hr_zone"
 }
