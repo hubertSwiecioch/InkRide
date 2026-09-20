@@ -17,6 +17,7 @@ import com.speedevand.inkride.core.domain.history.RideRecord
 import com.speedevand.inkride.core.domain.settings.MeasurementUnits
 import com.speedevand.inkride.core.domain.tracking.ElevationProfile
 import com.speedevand.inkride.core.domain.tracking.LapRecord
+import com.speedevand.inkride.core.domain.tracking.PowerSource
 import com.speedevand.inkride.core.presentation.UiText
 import com.speedevand.inkride.core.toClockString
 import java.text.SimpleDateFormat
@@ -151,8 +152,29 @@ fun RideRecord.toDetailUi(units: MeasurementUnits = MeasurementUnits.METRIC): Ri
         maxSpeedKmh = String.format(Locale.US, "$FORMAT_ONE_DECIMAL $speedUnit", maxSpeedKmh * speedFactor),
         elevationGainM = String.format(Locale.US, "$FORMAT_NO_DECIMALS $altitudeUnit", elevationGainM * altitudeFactor),
         caloriesKcal = String.format(Locale.US, "$FORMAT_NO_DECIMALS $UNIT_KCAL", caloriesKcal),
-        averagePowerWatts = String.format(Locale.US, "$FORMAT_NO_DECIMALS $UNIT_W", averagePowerWatts.toDouble()),
+        averagePowerWatts = formatAveragePower(averagePowerWatts, powerSource),
     )
+}
+
+/**
+ * Average power, marked approximate unless it is known to have come from a
+ * meter. [PowerEstimator] is a ±30-60 % physical model, and rendering its
+ * output like a measurement lets a rider read a guess as a fact.
+ *
+ * A null [source] means "not recorded" — every ride older than the column has
+ * one — rather than "estimated". It is marked anyway: leaving it bare would
+ * imply a meter, which is the exact confusion this marker exists to prevent,
+ * and understating confidence is the safer direction to be wrong in.
+ *
+ * Zero is never marked: nothing was approximated by a ride that produced no
+ * power at all.
+ */
+private fun formatAveragePower(
+    watts: Int,
+    source: PowerSource?,
+): String {
+    val formatted = String.format(Locale.US, "$FORMAT_NO_DECIMALS $UNIT_W", watts.toDouble())
+    return if (source != PowerSource.MEASURED && watts > 0) "~$formatted" else formatted
 }
 
 sealed interface RideDetailAction {

@@ -6,6 +6,7 @@ import com.speedevand.inkride.core.domain.history.RideRecord
 import com.speedevand.inkride.core.domain.settings.MeasurementUnits
 import com.speedevand.inkride.core.domain.tracking.ElevationProfile
 import com.speedevand.inkride.core.domain.tracking.ElevationProfilePoint
+import com.speedevand.inkride.core.domain.tracking.PowerSource
 import org.junit.jupiter.api.Test
 
 class RideRecordMappingTest {
@@ -98,5 +99,38 @@ class RideRecordMappingTest {
 
         assertThat(ui.maxAltitudeLabel).isEqualTo("492 ft")
         assertThat(ui.minAltitudeLabel).isEqualTo("328 ft")
+    }
+
+    @Test
+    fun `an estimated ride's average power is marked as approximate`() {
+        val ui = sampleRide.copy(powerSource = PowerSource.ESTIMATED).toDetailUi(MeasurementUnits.METRIC)
+
+        assertThat(ui.averagePowerWatts).isEqualTo("~120 W")
+    }
+
+    @Test
+    fun `a measured ride's average power carries no marker`() {
+        val ui = sampleRide.copy(powerSource = PowerSource.MEASURED).toDetailUi(MeasurementUnits.METRIC)
+
+        // The marker's absence is the signal that the number came from a meter.
+        assertThat(ui.averagePowerWatts).isEqualTo("120 W")
+    }
+
+    @Test
+    fun `a ride with no recorded provenance is marked rather than passed off as measured`() {
+        // powerSource is null for every ride older than the column. That means
+        // "not recorded", not "estimated" — but leaving it bare would imply a
+        // meter, which is the exact confusion the marker exists to prevent.
+        // Erring toward understating confidence is the safe direction.
+        val ui = sampleRide.copy(powerSource = null).toDetailUi(MeasurementUnits.METRIC)
+
+        assertThat(ui.averagePowerWatts).isEqualTo("~120 W")
+    }
+
+    @Test
+    fun `zero average power is never marked`() {
+        val ui = sampleRide.copy(averagePowerWatts = 0, powerSource = PowerSource.ESTIMATED).toDetailUi(MeasurementUnits.METRIC)
+
+        assertThat(ui.averagePowerWatts).isEqualTo("0 W")
     }
 }
