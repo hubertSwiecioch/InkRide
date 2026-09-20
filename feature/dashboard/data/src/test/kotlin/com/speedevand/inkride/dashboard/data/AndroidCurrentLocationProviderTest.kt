@@ -244,4 +244,49 @@ class AndroidCurrentLocationProviderTest {
 
             assertThat(result).isEqualTo(Result.Success(LocationFix(48.0, 17.0)))
         }
+
+    @Test
+    @Config(sdk = [Build.VERSION_CODES.R])
+    fun `the configured timeout is honoured on API 30 and above, not just the platform's own`() {
+        shadowOf(context).grantPermissions(Manifest.permission.ACCESS_FINE_LOCATION)
+        val provider = AndroidCurrentLocationProvider(context, rideTracker, timeoutMs = 1_000L)
+
+        var result: Result<LocationFix, LocationError>? = null
+        val scope = CoroutineScope(UnconfinedTestDispatcher())
+        scope.launch { result = provider.getCurrentLocation() }
+
+        // getCurrentLocation() has a platform timeout of its own (30 s), so
+        // without an explicit budget the rider waits twice the documented 15 s
+        // staring at a spinner before destination search gives up.
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(1_000L))
+
+        assertThat(result).isEqualTo(Result.Error(LocationError.TIMED_OUT))
+        scope.cancel()
+    }
+
+    @Test
+    @Config(sdk = [Build.VERSION_CODES.R])
+    fun `a fix arriving before the timeout still wins on API 30 and above`() {
+        shadowOf(context).grantPermissions(Manifest.permission.ACCESS_FINE_LOCATION)
+        val provider = AndroidCurrentLocationProvider(context, rideTracker, timeoutMs = 10_000L)
+
+        var result: Result<LocationFix, LocationError>? = null
+        val scope = CoroutineScope(UnconfinedTestDispatcher())
+        scope.launch { result = provider.getCurrentLocation() }
+
+        val fix =
+            Location(LocationManager.GPS_PROVIDER).apply {
+                latitude = 52.0
+                longitude = 21.0
+            }
+        shadowOf(locationManager).simulateLocation(fix)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        // The timeout must not fire first, and must not resolve the request a
+        // second time once the fix has already answered it.
+        assertThat(result).isEqualTo(Result.Success(LocationFix(52.0, 21.0)))
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(20_000L))
+        assertThat(result).isEqualTo(Result.Success(LocationFix(52.0, 21.0)))
+        scope.cancel()
+    }
 }
